@@ -1,0 +1,339 @@
+---
+import Base from "../../layouts/Base.astro";
+import EtiquetaTipo from "../../components/EtiquetaTipo.astro";
+import Mapa from "../../components/Mapa.astro";
+import { t } from "../../i18n";
+import {
+  NOMES_TERRITORIO,
+  NOMES_TIPO,
+  NOMES_TIPO_LOCAL,
+  dataPorExtenso,
+  dataVigente,
+  duracao,
+  graus,
+  horaCurta,
+  magnitude,
+  numero,
+  percentagem,
+  rotuloSistemaHora,
+  titulo as tituloEclipse,
+} from "../../lib/formatacao";
+import {
+  TERRITORIOS,
+  eclipse as lerEclipse,
+  indice,
+  metadadosFaixa,
+  municipios as lerMunicipios,
+  niveisIsomagnitude,
+  recursos as lerRecursos,
+  vizinhos,
+} from "../../lib/dados";
+import { caminho, urlEclipse } from "../../lib/urls";
+
+export function getStaticPaths() {
+  return indice().map((entrada) => ({ params: { id: entrada.id } }));
+}
+
+const { id } = Astro.params;
+const eclipse = lerEclipse(id!);
+const recursos = lerRecursos(eclipse.id);
+const municipios = lerMunicipios(eclipse.id);
+const faixa = metadadosFaixa(eclipse.id);
+const niveis = niveisIsomagnitude(eclipse.id);
+const { anterior, seguinte } = vizinhos(eclipse.id);
+
+const { principal, alternativa, calendario } = dataVigente(eclipse);
+const cabecalho = tituloEclipse(eclipse);
+
+// A hora solar media so aparece antes de 1912; basta um territorio para a nota
+// fazer sentido.
+const usaHoraSolar = TERRITORIOS.some((territorio) => {
+  const dados = eclipse.territorios[territorio];
+  return dados.visivel && dados.sistema_hora === "hora_solar_media_local";
+});
+
+const faixaEstreita = faixa !== null && !faixa.desenhavel_como_area;
+---
+
+<Base titulo={cabecalho} descricao={cabecalho}>
+  <p class="discreto">
+    <a href={caminho("")}>{t("ficha.voltar")}</a>
+  </p>
+
+  <h1>{cabecalho}</h1>
+  <p class="datas">
+    <EtiquetaTipo tipo={eclipse.tipo} />
+    <span>
+      {dataPorExtenso(principal)}{" "}
+      {
+        alternativa && (
+          <span class="discreto">
+            ({dataPorExtenso(alternativa)}, {t("ficha.calendario_gregoriano")})
+          </span>
+        )
+      }
+    </span>
+  </p>
+
+  {
+    calendario === "juliano" && (
+      <div class="nota">
+        <p>{t("ficha.nota_calendario")}</p>
+      </div>
+    )
+  }
+  {
+    usaHoraSolar && (
+      <div class="nota">
+        <p>{t("ficha.nota_hora_solar")}</p>
+      </div>
+    )
+  }
+  {
+    !eclipse.dados_pesados && (
+      <div class="nota">
+        <p>{t("ficha.nota_sem_dados_pesados")}</p>
+      </div>
+    )
+  }
+  {
+    faixaEstreita && (
+      <div class="nota">
+        <p>
+          {t("ficha.nota_faixa_estreita")}
+          {faixa?.largura_sobre_pt_km !== null &&
+            faixa?.largura_sobre_pt_km !== undefined && (
+              <>
+                {" "}
+                {t("ficha.largura_faixa")}: {numero(faixa.largura_sobre_pt_km, 2)}{" "}
+                km.
+              </>
+            )}
+        </p>
+      </div>
+    )
+  }
+
+  <h2>{t("ficha.mapa")}</h2>
+  <Mapa
+    eclipse={eclipse}
+    recursos={recursos}
+    municipios={municipios}
+    faixa={faixa}
+    niveis={niveis}
+  />
+
+  <h2>{t("ficha.circunstancias")}</h2>
+  <div class="grelha">
+    {
+      TERRITORIOS.map((territorio) => {
+        const dados = eclipse.territorios[territorio];
+        return (
+          <section class="caixa">
+            <h3>{NOMES_TERRITORIO[territorio]}</h3>
+            {dados.visivel ? (
+              <dl class="dados">
+                <dt>{t("ficha.tipo_local")}</dt>
+                <dd>{NOMES_TIPO_LOCAL[dados.tipo_local]}</dd>
+
+                <dt>{t("ficha.magnitude_maxima")}</dt>
+                <dd>{magnitude(dados.magnitude_max)}</dd>
+
+                <dt>{t("ficha.obscuracao")}</dt>
+                <dd>{percentagem(dados.obscuracao_max)}</dd>
+
+                <dt>{t("ficha.local_mais_fundo")}</dt>
+                <dd>{dados.local_mais_fundo.nome}</dd>
+
+                <dt>{t("ficha.maximo_local")}</dt>
+                <dd>
+                  {horaCurta(dados.maximo_local)}
+                  <span class="discreto">
+                    {" "}
+                    {rotuloSistemaHora(dados.sistema_hora, dados.designacao_fuso)}
+                  </span>
+                </dd>
+
+                <dt>{t("ficha.maximo_ut")}</dt>
+                <dd>{horaCurta(dados.maximo_ut)}</dd>
+
+                <dt>{t("ficha.altura_sol")}</dt>
+                <dd>{graus(dados.alt_sol_graus)}</dd>
+
+                <dt>{t("ficha.azimute_sol")}</dt>
+                <dd>{graus(dados.az_sol_graus)}</dd>
+
+                {dados.duracao_central_s !== null && (
+                  <>
+                    <dt>{t("ficha.duracao_central")}</dt>
+                    <dd>{duracao(dados.duracao_central_s)}</dd>
+                  </>
+                )}
+
+                {dados.faixa_entrada && (
+                  <>
+                    <dt>{t("ficha.faixa_entrada")}</dt>
+                    <dd>{dados.faixa_entrada.nome}</dd>
+                  </>
+                )}
+
+                {dados.faixa_saida && (
+                  <>
+                    <dt>{t("ficha.faixa_saida")}</dt>
+                    <dd>{dados.faixa_saida.nome}</dd>
+                  </>
+                )}
+
+                {dados.faixa_central && (
+                  <>
+                    <dt>{t("ficha.area_com_faixa")}</dt>
+                    <dd>{percentagem(dados.fraccao_territorio_com_faixa)}</dd>
+                  </>
+                )}
+              </dl>
+            ) : (
+              <p class="discreto">{t("ficha.nao_visivel")}</p>
+            )}
+          </section>
+        );
+      })
+    }
+  </div>
+
+  {
+    municipios && municipios.concelhos.length > 0 && (
+      <>
+        <h2>{t("ficha.concelhos")}</h2>
+        <p class="discreto">
+          {t("ficha.concelhos_total", { total: municipios.total })}
+        </p>
+        <div class="nota">
+          <p>{t("ficha.concelhos_aviso")}</p>
+        </div>
+        <div class="tabela-envolvente">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">{t("ficha.concelhos_coluna_nome")}</th>
+                <th scope="col">{t("ficha.concelhos_coluna_tipo")}</th>
+                <th scope="col" class="numero">
+                  {t("ficha.concelhos_coluna_magnitude")}
+                </th>
+                <th scope="col" class="numero">
+                  {t("ficha.concelhos_coluna_duracao")}
+                </th>
+                <th scope="col" class="numero">
+                  {t("ficha.concelhos_coluna_maximo")}
+                </th>
+                <th scope="col" class="numero">
+                  {t("ficha.concelhos_coluna_area")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {municipios.concelhos.map((concelho) => (
+                <tr>
+                  <th scope="row">{concelho.nome}</th>
+                  <td>{NOMES_TIPO_LOCAL[concelho.tipo_local]}</td>
+                  <td class="numero">{magnitude(concelho.magnitude)}</td>
+                  <td class="numero">
+                    {concelho.duracao_central_s === null
+                      ? ""
+                      : duracao(concelho.duracao_central_s)}
+                  </td>
+                  <td class="numero">{horaCurta(concelho.maximo_local)}</td>
+                  <td class="numero">{percentagem(concelho.fraccao_area, 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
+
+  <h2>{t("ficha.dados_globais")}</h2>
+  <dl class="dados dados-globais">
+    <dt>{t("ficha.tipo")}</dt>
+    <dd>{NOMES_TIPO[eclipse.tipo]}</dd>
+
+    <dt>{t("ficha.saros")}</dt>
+    <dd>{eclipse.saros}</dd>
+
+    <dt>{t("ficha.gamma")}</dt>
+    <dd>{numero(eclipse.gamma, 4)}</dd>
+
+    <dt>{t("ficha.magnitude_canon")}</dt>
+    <dd>{magnitude(eclipse.magnitude_canon)}</dd>
+
+    <dt>{t("ficha.maximo_global")}</dt>
+    <dd>{eclipse.maximo_global_ut} UT</dd>
+
+    <dt>{t("ficha.delta_t")}</dt>
+    <dd>{numero(eclipse.delta_t_s, 1)} s</dd>
+
+    <dt>{t("ficha.dia_juliano")}</dt>
+    <dd>{numero(eclipse.jd, 3)}</dd>
+
+    {
+      faixa?.largura_maxima_km !== null && faixa?.largura_maxima_km !== undefined && (
+        <>
+          <dt>{t("ficha.largura_faixa_maxima")}</dt>
+          <dd>{numero(faixa.largura_maxima_km, 1)} km</dd>
+        </>
+      )
+    }
+  </dl>
+
+  <nav class="vizinhos" aria-label={t("nav.catalogo")}>
+    {
+      anterior ? (
+        <a href={urlEclipse(anterior.id)}>
+          <span class="discreto">{t("ficha.anterior")}</span>
+          <br />
+          {dataPorExtenso(dataVigente(anterior).principal)}
+        </a>
+      ) : (
+        <span />
+      )
+    }
+    {
+      seguinte && (
+        <a class="direita" href={urlEclipse(seguinte.id)}>
+          <span class="discreto">{t("ficha.seguinte")}</span>
+          <br />
+          {dataPorExtenso(dataVigente(seguinte).principal)}
+        </a>
+      )
+    }
+  </nav>
+</Base>
+
+<style>
+  .datas {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    font-size: 1.05rem;
+    margin-top: 0;
+  }
+
+  .dados-globais {
+    max-width: 32rem;
+  }
+
+  .vizinhos {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--linha);
+  }
+
+  .vizinhos .direita {
+    text-align: right;
+    margin-left: auto;
+  }
+</style>

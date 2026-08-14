@@ -1,0 +1,22 @@
+{
+  "name": "eclipse-pt-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "vendor": "node scripts/preparar-maplibre.mjs",
+    "dev": "npm run vendor && astro dev",
+    "build": "npm run vendor && astro build",
+    "preview": "astro preview",
+    "check": "npm run vendor && astro check"
+  },
+  "dependencies": {
+    "astro": "^7.2.2",
+    "maplibre-gl": "^6.3.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.9.2"
+  }
+}

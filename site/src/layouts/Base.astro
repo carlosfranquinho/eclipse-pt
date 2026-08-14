@@ -1,0 +1,71 @@
+---
+import "../styles/global.css";
+import { t } from "../i18n";
+import { caminho } from "../lib/urls";
+
+interface Props {
+  titulo: string;
+  descricao?: string;
+  /** Qual das entradas do menu fica marcada como pagina actual. */
+  seccao?: "inicio" | "sobre";
+}
+
+const { titulo, descricao = t("site.descricao"), seccao } = Astro.props;
+const tituloCompleto =
+  titulo === t("site.titulo") ? titulo : `${titulo} | ${t("site.titulo")}`;
+---
+
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{tituloCompleto}</title>
+    <meta name="description" content={descricao} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" href={caminho("favicon.svg")} type="image/svg+xml" />
+    <meta property="og:title" content={tituloCompleto} />
+    <meta property="og:description" content={descricao} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_PT" />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    {/* Marca a pagina para o CSS poder esconder o que so funciona com JS. */}
+    <script is:inline>
+      document.documentElement.classList.add("js");
+    </script>
+  </head>
+  <body>
+    <a class="saltar" href="#conteudo">{t("site.saltar_para_conteudo")}</a>
+    <header class="cabecalho">
+      <div class="envolvente">
+        <a class="marca" href={caminho("")}>{t("site.titulo")}</a>
+        <nav class="navegacao" aria-label={t("nav.catalogo")}>
+          <a href={caminho("")} aria-current={seccao === "inicio" ? "page" : undefined}>
+            {t("nav.catalogo")}
+          </a>
+          <a
+            href={caminho("sobre")}
+            aria-current={seccao === "sobre" ? "page" : undefined}
+          >
+            {t("nav.sobre")}
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="conteudo">
+      <div class="envolvente">
+        <slot />
+      </div>
+    </main>
+
+    <footer class="rodape">
+      <div class="envolvente">
+        <p><strong>{t("rodape.fontes")}</strong></p>
+        <p>{t("rodape.nasa")}</p>
+        <p>{t("rodape.caop")}</p>
+        <p>{t("rodape.nota")}</p>
+      </div>
+    </footer>
+  </body>
+</html>

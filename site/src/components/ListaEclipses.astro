@@ -1,0 +1,78 @@
+---
+import EtiquetaTipo from "./EtiquetaTipo.astro";
+import { t } from "../i18n";
+import {
+  NOMES_TERRITORIO,
+  dataPorExtenso,
+  dataVigente,
+  magnitude,
+} from "../lib/formatacao";
+import type { EntradaIndice } from "../lib/tipos";
+import { urlEclipse } from "../lib/urls";
+import { atributosFiltro } from "../lib/filtros";
+
+interface Props {
+  eclipses: EntradaIndice[];
+}
+
+const { eclipses } = Astro.props;
+---
+
+<div class="tabela-envolvente">
+  <table id="lista-eclipses">
+    <caption class="discreto">{t("inicio.catalogo")}</caption>
+    <thead>
+      <tr>
+        <th scope="col">{t("lista.data")}</th>
+        <th scope="col">{t("lista.tipo")}</th>
+        <th scope="col" class="numero">{t("lista.magnitude")}</th>
+        <th scope="col">{t("lista.territorios")}</th>
+        <th scope="col">{t("lista.faixa_central")}</th>
+        <th scope="col" class="numero">{t("lista.saros")}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        eclipses.map((eclipse) => {
+          const { principal, alternativa } = dataVigente(eclipse);
+          return (
+            <tr {...atributosFiltro(eclipse)}>
+              <th scope="row">
+                <a href={urlEclipse(eclipse.id)}>{dataPorExtenso(principal)}</a>
+                {alternativa && (
+                  <span class="discreto"> ({dataPorExtenso(alternativa)})</span>
+                )}
+              </th>
+              <td>
+                <EtiquetaTipo tipo={eclipse.tipo} />
+              </td>
+              <td class="numero">{magnitude(eclipse.pt.magnitude_max)}</td>
+              <td>
+                {eclipse.pt.territorios_visiveis
+                  .map((territorio) => NOMES_TERRITORIO[territorio])
+                  .join(", ")}
+              </td>
+              <td>{eclipse.pt.faixa_central ? t("lista.sim") : ""}</td>
+              <td class="numero">{eclipse.saros}</td>
+            </tr>
+          );
+        })
+      }
+    </tbody>
+  </table>
+</div>
+
+<style>
+  table caption {
+    text-align: left;
+    padding-bottom: 0.5rem;
+  }
+
+  th[scope="row"] {
+    white-space: nowrap;
+  }
+
+  tr[hidden] {
+    display: none;
+  }
+</style>

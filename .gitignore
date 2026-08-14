@@ -10,11 +10,18 @@ node_modules/
 .astro/
 dist/
 
+# Copia do MapLibre para servir estaticamente, refeita a cada build por
+# site/scripts/preparar-maplibre.mjs.
+site/public/vendor/
+
 # Efemérides do Skyfield, grandes e descarregáveis
 pipeline/cache/skyfield/
 
 # Sistema
 .DS_Store
+
+# Permissoes locais do Claude Code, especificas de cada maquina.
+.claude/settings.local.json*
 
 # Descarga bruta do canon: 12,7 MB e regeneravel por ingest_canon.py.
 # O cache normalizado (canon.json) e que fica commitado.

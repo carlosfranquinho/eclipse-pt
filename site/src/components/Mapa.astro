@@ -1,0 +1,832 @@
+---
+import { t } from "../i18n";
+import {
+  NOMES_TERRITORIO,
+  NOMES_TIPO_LOCAL,
+  duracao,
+  graus,
+  horaCurta,
+  magnitude,
+  numero,
+  percentagem,
+  rotuloSistemaHora,
+} from "../lib/formatacao";
+import { CAIXAS, TERRITORIOS } from "../lib/dados";
+import type {
+  Eclipse,
+  MetadadosFaixa,
+  MunicipiosAtravessados,
+  Recursos,
+  Territorio,
+} from "../lib/tipos";
+import { caminho } from "../lib/urls";
+
+interface Props {
+  eclipse: Eclipse;
+  recursos: Recursos;
+  municipios: MunicipiosAtravessados | null;
+  faixa: MetadadosFaixa | null;
+  niveis: number[];
+}
+
+const { eclipse, recursos, municipios, faixa, niveis } = Astro.props;
+
+const visiveis = TERRITORIOS.filter((territorio) => {
+  const dados = eclipse.territorios[territorio];
+  return dados?.visivel === true;
+});
+
+const enquadramentos = visiveis.map((territorio) => ({
+  chave: territorio,
+  nome: NOMES_TERRITORIO[territorio],
+  caixa: CAIXAS[territorio],
+}));
+
+// Abre no continente quando ha alguma coisa para ver la, que e o caso comum.
+const inicial = enquadramentos.find((e) => e.chave === "continente") ??
+  enquadramentos[0] ?? {
+    chave: "continente" as Territorio,
+    nome: NOMES_TERRITORIO.continente,
+    caixa: CAIXAS.continente,
+  };
+
+/** Os textos dos balões sao montados aqui, na build, para a formatacao viver
+ * toda no mesmo sitio e o browser so ter de os mostrar. */
+function baloesConcelhos(): Record<string, { titulo: string; linhas: string[] }> {
+  const mapa: Record<string, { titulo: string; linhas: string[] }> = {};
+  for (const concelho of municipios?.concelhos ?? []) {
+    const linhas = [
+      `${t("ficha.tipo_local")}: ${NOMES_TIPO_LOCAL[concelho.tipo_local]}`,
+      `${t("ficha.magnitude_maxima")}: ${magnitude(concelho.magnitude)}`,
+    ];
+    if (concelho.duracao_central_s !== null) {
+      linhas.push(
+        `${t("ficha.duracao_central")}: ${duracao(concelho.duracao_central_s)}`,
+      );
+    }
+    linhas.push(
+      `${t("ficha.maximo_local")}: ${horaCurta(concelho.maximo_local)} (${rotuloSistemaHora(
+        concelho.sistema_hora,
+        null,
+      )})`,
+    );
+    linhas.push(
+      `${t("ficha.concelhos_coluna_area")}: ${percentagem(concelho.fraccao_area, 0)}`,
+    );
+    mapa[concelho.nome] = { titulo: concelho.nome, linhas };
+  }
+  return mapa;
+}
+
+/** Pontos notaveis: onde o eclipse e mais fundo em cada territorio e por onde a
+ * faixa entra e sai. */
+function pontos() {
+  const feicoes: unknown[] = [];
+  for (const territorio of visiveis) {
+    const dados = eclipse.territorios[territorio];
+    if (!dados.visivel) continue;
+
+    const linhas = [
+      `${t("ficha.magnitude_maxima")}: ${magnitude(dados.magnitude_max)}`,
+      `${t("ficha.obscuracao")}: ${percentagem(dados.obscuracao_max)}`,
+      `${t("ficha.maximo_local")}: ${horaCurta(dados.maximo_local)} (${rotuloSistemaHora(
+        dados.sistema_hora,
+        dados.designacao_fuso,
+      )})`,
+      `${t("ficha.altura_sol")}: ${graus(dados.alt_sol_graus)}`,
+    ];
+    if (dados.duracao_central_s !== null) {
+      linhas.push(
+        `${t("ficha.duracao_central")}: ${duracao(dados.duracao_central_s)}`,
+      );
+    }
+    feicoes.push({
+      type: "Feature",
+      properties: {
+        genero: "fundo",
+        titulo: `${dados.local_mais_fundo.nome} (${NOMES_TERRITORIO[territorio]})`,
+        subtitulo: t("ficha.local_mais_fundo"),
+        linhas,
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [dados.local_mais_fundo.lon, dados.local_mais_fundo.lat],
+      },
+    });
+
+    for (const [chave, rotulo] of [
+      ["faixa_entrada", t("ficha.faixa_entrada")],
+      ["faixa_saida", t("ficha.faixa_saida")],
+    ] as const) {
+      const ponto = dados[chave];
+      if (!ponto) continue;
+      feicoes.push({
+        type: "Feature",
+        properties: {
+          genero: "faixa",
+          titulo: ponto.nome,
+          subtitulo: rotulo,
+          linhas: [],
+        },
+        geometry: { type: "Point", coordinates: [ponto.lon, ponto.lat] },
+      });
+    }
+  }
+  return { type: "FeatureCollection", features: feicoes };
+}
+
+const desenhavelComoArea = faixa?.desenhavel_como_area ?? false;
+
+const configuracao = {
+  biblioteca: caminho("vendor/maplibre/maplibre-gl.mjs"),
+  urls: {
+    territorios: caminho("geo/territorios.geojson"),
+    concelhos: caminho("geo/municipios.geojson"),
+    faixa: recursos.faixa ? caminho(recursos.faixa) : null,
+    central: recursos.linha_central ? caminho(recursos.linha_central) : null,
+    isomagnitudes: recursos.isomagnitudes ? caminho(recursos.isomagnitudes) : null,
+  },
+  desenhavelComoArea,
+  enquadramentos,
+  inicial: inicial.caixa,
+  concelhos: baloesConcelhos(),
+  pontos: pontos(),
+  atribuicao: {
+    caop: "CAOP 2025, DGT",
+    nasa: "Elementos besselianos: F. Espenak, NASA GSFC",
+  },
+  textos: {
+    erro: t("mapa.erro"),
+  },
+};
+
+const camadas = [
+  recursos.faixa && desenhavelComoArea ? { chave: "faixa", rotulo: t("mapa.faixa"), ligada: true } : null,
+  recursos.linha_central
+    ? { chave: "central", rotulo: t("mapa.linha_central"), ligada: true }
+    : null,
+  recursos.isomagnitudes
+    ? { chave: "isomagnitudes", rotulo: t("mapa.isomagnitudes"), ligada: true }
+    : null,
+  municipios && municipios.concelhos.length > 0
+    ? {
+        chave: "atravessados",
+        rotulo: t("mapa.concelhos_atravessados"),
+        ligada: false,
+      }
+    : null,
+  { chave: "concelhos", rotulo: t("mapa.concelhos"), ligada: false },
+  { chave: "osm", rotulo: t("mapa.fundo_osm"), ligada: false },
+].filter((camada) => camada !== null);
+---
+
+<div class="mapa-bloco">
+  <div
+    id="mapa-eclipse"
+    class="mapa"
+    data-configuracao={JSON.stringify(configuracao)}
+    role="application"
+    aria-label={t("mapa.titulo")}
+  >
+    <p class="aviso-mapa">{t("mapa.a_carregar")}</p>
+    <noscript><p class="aviso-mapa">{t("mapa.sem_javascript")}</p></noscript>
+  </div>
+
+  <div class="controlos so-com-js">
+    <fieldset>
+      <legend>{t("mapa.camadas")}</legend>
+      {
+        camadas.map((camada) => (
+          <label>
+            <input
+              type="checkbox"
+              data-camada={camada.chave}
+              checked={camada.ligada}
+            />
+            {camada.rotulo}
+          </label>
+        ))
+      }
+    </fieldset>
+
+    {
+      enquadramentos.length > 1 && (
+        <fieldset>
+          <legend>{t("mapa.enquadrar")}</legend>
+          <div class="botoes">
+            {enquadramentos.map((enquadramento) => (
+              <button type="button" data-enquadrar={enquadramento.chave}>
+                {enquadramento.nome}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )
+    }
+
+    {
+      niveis.length > 0 && (
+        <fieldset>
+          <legend>{t("mapa.isomagnitudes")}</legend>
+          <ul class="legenda">
+            {niveis.map((nivel) => (
+              <li>
+                <span class="amostra" data-isomagnitude={nivel} />
+                {numero(nivel, 2)}
+              </li>
+            ))}
+          </ul>
+        </fieldset>
+      )
+    }
+  </div>
+</div>
+
+<script>
+  // So os tipos vem do pacote. A biblioteca em si e importada em tempo de
+  // execucao a partir de `public/vendor/maplibre/`, porque empacota-la parte o
+  // worker do MapLibre. Ver scripts/preparar-maplibre.mjs.
+  import type { LngLatBoundsLike, StyleSpecification } from "maplibre-gl";
+  import "maplibre-gl/dist/maplibre-gl.css";
+
+  type Biblioteca = typeof import("maplibre-gl");
+  type Mapa = InstanceType<Biblioteca["Map"]>;
+  type Balao = { titulo: string; linhas: string[] };
+
+  type Configuracao = {
+    biblioteca: string;
+    urls: {
+      territorios: string;
+      concelhos: string;
+      faixa: string | null;
+      central: string | null;
+      isomagnitudes: string | null;
+    };
+    desenhavelComoArea: boolean;
+    enquadramentos: { chave: string; nome: string; caixa: number[] }[];
+    inicial: number[];
+    concelhos: Record<string, Balao>;
+    pontos: unknown;
+    atribuicao: { caop: string; nasa: string };
+    textos: { erro: string };
+  };
+
+  const PALETAS = {
+    claro: {
+      mar: "#dfe7ee",
+      terra: "#f6f2e8",
+      costa: "#8d8579",
+      concelho: "#c9c2b4",
+      faixa: "#5b21b6",
+      central: "#3b0764",
+      atravessado: "#7c3aed",
+      ponto: "#b91c1c",
+    },
+    escuro: {
+      mar: "#0f1620",
+      terra: "#20222b",
+      costa: "#6d7686",
+      concelho: "#3a3f4c",
+      faixa: "#a78bfa",
+      central: "#ddd6fe",
+      atravessado: "#c4b5fd",
+      ponto: "#fca5a5",
+    },
+  };
+
+  const escuro = window.matchMedia("(prefers-color-scheme: dark)");
+
+  function paleta() {
+    return escuro.matches ? PALETAS.escuro : PALETAS.claro;
+  }
+
+  const contentor = document.getElementById("mapa-eclipse");
+  const configuracao: Configuracao | null = contentor?.dataset.configuracao
+    ? JSON.parse(contentor.dataset.configuracao)
+    : null;
+
+  let maplibre: Biblioteca;
+
+  if (contentor && configuracao) {
+    maplibre = (await import(
+      /* @vite-ignore */ configuracao.biblioteca
+    )) as Biblioteca;
+    iniciar(contentor, configuracao);
+  }
+
+  function iniciar(contentor: HTMLElement, config: Configuracao) {
+    const cores = paleta();
+
+    const fontes: StyleSpecification["sources"] = {
+      territorios: {
+        type: "geojson",
+        data: config.urls.territorios,
+        attribution: config.atribuicao.caop,
+      },
+      pontos: { type: "geojson", data: config.pontos as never },
+    };
+    if (config.urls.isomagnitudes) {
+      fontes.isomagnitudes = {
+        type: "geojson",
+        data: config.urls.isomagnitudes,
+        attribution: config.atribuicao.nasa,
+      };
+    }
+    if (config.urls.faixa) {
+      fontes.faixa = { type: "geojson", data: config.urls.faixa };
+    }
+    if (config.urls.central) {
+      fontes.central = { type: "geojson", data: config.urls.central };
+    }
+
+    const camadas: StyleSpecification["layers"] = [
+      { id: "mar", type: "background", paint: { "background-color": cores.mar } },
+      {
+        id: "terra",
+        type: "fill",
+        source: "territorios",
+        paint: { "fill-color": cores.terra },
+      },
+      {
+        id: "costa",
+        type: "line",
+        source: "territorios",
+        paint: { "line-color": cores.costa, "line-width": 1 },
+      },
+    ];
+
+    if (config.urls.isomagnitudes) {
+      camadas.push({
+        id: "isomagnitudes",
+        type: "line",
+        source: "isomagnitudes",
+        paint: {
+          // Do azul frio nas magnitudes baixas ao quente junto da totalidade.
+          "line-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "magnitude"],
+            0.2,
+            "#38bdf8",
+            0.6,
+            "#22c55e",
+            0.9,
+            "#f59e0b",
+            0.99,
+            "#dc2626",
+          ],
+          "line-width": 1.4,
+          "line-opacity": 0.9,
+        },
+      });
+    }
+
+    if (config.urls.faixa && config.desenhavelComoArea) {
+      camadas.push(
+        {
+          id: "faixa",
+          type: "fill",
+          source: "faixa",
+          paint: { "fill-color": cores.faixa, "fill-opacity": 0.25 },
+        },
+        {
+          id: "faixa-contorno",
+          type: "line",
+          source: "faixa",
+          paint: { "line-color": cores.faixa, "line-width": 1.5 },
+        },
+      );
+    }
+
+    if (config.urls.central) {
+      camadas.push({
+        id: "central",
+        type: "line",
+        source: "central",
+        paint: {
+          "line-color": cores.central,
+          // Sem poligono de faixa, a linha central e tudo o que ha para ver.
+          "line-width": config.desenhavelComoArea ? 2 : 4,
+          "line-dasharray": config.desenhavelComoArea ? [3, 2] : [1],
+        },
+      });
+    }
+
+    camadas.push(
+      {
+        id: "pontos-halo",
+        type: "circle",
+        source: "pontos",
+        paint: {
+          "circle-radius": 7,
+          "circle-color": "#ffffff",
+          "circle-opacity": 0.85,
+        },
+      },
+      {
+        id: "pontos",
+        type: "circle",
+        source: "pontos",
+        paint: {
+          "circle-radius": 4,
+          "circle-color": [
+            "match",
+            ["get", "genero"],
+            "fundo",
+            cores.ponto,
+            cores.central,
+          ],
+        },
+      },
+    );
+
+    const mapa = new maplibre.Map({
+      container: contentor,
+      style: { version: 8, sources: fontes, layers: camadas },
+      bounds: config.inicial as LngLatBoundsLike,
+      fitBoundsOptions: { padding: 24 },
+      attributionControl: { compact: true },
+    });
+
+    mapa.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+    mapa.addControl(new maplibre.ScaleControl({ unit: "metric" }), "bottom-left");
+    mapa.on("error", (evento) => console.error(config.textos.erro, evento.error));
+
+    mapa.on("load", () => {
+      contentor.querySelectorAll(".aviso-mapa").forEach((no) => no.remove());
+      ligarControlos(mapa, config);
+      ligarBaloes(mapa, config, ["pontos"]);
+    });
+
+    escuro.addEventListener("change", () => aplicarPaleta(mapa, config));
+  }
+
+  /** Muda as cores sem reconstruir o estilo, para nao voltar a descarregar os
+   * GeoJSON quando o sistema passa de claro a escuro. */
+  function aplicarPaleta(mapa: Mapa, config: Configuracao) {
+    const cores = paleta();
+    const definir = (camada: string, propriedade: string, valor: unknown) => {
+      if (mapa.getLayer(camada)) {
+        mapa.setPaintProperty(camada, propriedade as never, valor as never);
+      }
+    };
+    definir("mar", "background-color", cores.mar);
+    definir("terra", "fill-color", cores.terra);
+    definir("costa", "line-color", cores.costa);
+    definir("concelhos", "line-color", cores.concelho);
+    definir("faixa", "fill-color", cores.faixa);
+    definir("faixa-contorno", "line-color", cores.faixa);
+    definir("central", "line-color", cores.central);
+    definir("atravessados", "fill-color", cores.atravessado);
+    definir("atravessados-contorno", "line-color", cores.atravessado);
+    definir("pontos", "circle-color", [
+      "match",
+      ["get", "genero"],
+      "fundo",
+      cores.ponto,
+      cores.central,
+    ]);
+    void config;
+  }
+
+  /** Os limites de concelho pesam alguns megabytes e a maior parte das visitas
+   * nunca os liga. So se carregam quando alguem os pede. */
+  function garantirConcelhos(
+    mapa: Mapa,
+    config: Configuracao,
+  ) {
+    if (mapa.getSource("concelhos")) return;
+    const cores = paleta();
+    mapa.addSource("concelhos", {
+      type: "geojson",
+      data: config.urls.concelhos,
+      attribution: config.atribuicao.caop,
+    });
+
+    const nomes = Object.keys(config.concelhos);
+    const antes = mapa.getLayer("isomagnitudes") ? "isomagnitudes" : "pontos-halo";
+
+    if (nomes.length > 0) {
+      mapa.addLayer(
+        {
+          id: "atravessados",
+          type: "fill",
+          source: "concelhos",
+          filter: ["in", ["get", "nome"], ["literal", nomes]],
+          layout: { visibility: "none" },
+          paint: { "fill-color": cores.atravessado, "fill-opacity": 0.35 },
+        },
+        antes,
+      );
+      mapa.addLayer(
+        {
+          id: "atravessados-contorno",
+          type: "line",
+          source: "concelhos",
+          filter: ["in", ["get", "nome"], ["literal", nomes]],
+          layout: { visibility: "none" },
+          paint: { "line-color": cores.atravessado, "line-width": 1 },
+        },
+        antes,
+      );
+      ligarBaloes(mapa, config, ["atravessados"]);
+    }
+
+    mapa.addLayer(
+      {
+        id: "concelhos",
+        type: "line",
+        source: "concelhos",
+        layout: { visibility: "none" },
+        paint: { "line-color": cores.concelho, "line-width": 0.6 },
+      },
+      antes,
+    );
+  }
+
+  const GRUPOS: Record<string, string[]> = {
+    faixa: ["faixa", "faixa-contorno"],
+    central: ["central"],
+    isomagnitudes: ["isomagnitudes"],
+    concelhos: ["concelhos"],
+    atravessados: ["atravessados", "atravessados-contorno"],
+  };
+
+  function ligarControlos(
+    mapa: Mapa,
+    config: Configuracao,
+  ) {
+    document
+      .querySelectorAll<HTMLInputElement>("[data-camada]")
+      .forEach((entrada) => {
+        const grupo = entrada.dataset.camada!;
+        entrada.addEventListener("change", () => {
+          if (grupo === "osm") {
+            alternarOsm(mapa, entrada.checked);
+            return;
+          }
+          if (grupo === "concelhos" || grupo === "atravessados") {
+            garantirConcelhos(mapa, config);
+          }
+          for (const camada of GRUPOS[grupo] ?? []) {
+            if (mapa.getLayer(camada)) {
+              mapa.setLayoutProperty(
+                camada,
+                "visibility",
+                entrada.checked ? "visible" : "none",
+              );
+            }
+          }
+        });
+      });
+
+    document
+      .querySelectorAll<HTMLButtonElement>("[data-enquadrar]")
+      .forEach((botao) => {
+        botao.addEventListener("click", () => {
+          const alvo = config.enquadramentos.find(
+            (e) => e.chave === botao.dataset.enquadrar,
+          );
+          if (alvo) {
+            mapa.fitBounds(alvo.caixa as LngLatBoundsLike, { padding: 24 });
+          }
+        });
+      });
+  }
+
+  function alternarOsm(mapa: Mapa, ligado: boolean) {
+    if (ligado && !mapa.getSource("osm")) {
+      mapa.addSource("osm", {
+        type: "raster",
+        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: "&copy; OpenStreetMap",
+      });
+      mapa.addLayer({ id: "osm", type: "raster", source: "osm" }, "costa");
+    }
+    if (mapa.getLayer("osm")) {
+      mapa.setLayoutProperty("osm", "visibility", ligado ? "visible" : "none");
+    }
+    // A mancha de terra taparia o fundo raster.
+    mapa.setPaintProperty("terra", "fill-opacity", ligado ? 0 : 1);
+  }
+
+  function ligarBaloes(
+    mapa: Mapa,
+    config: Configuracao,
+    alvos: string[],
+  ) {
+    for (const camada of alvos) {
+      mapa.on("click", camada, (evento) => {
+        const feicao = evento.features?.[0];
+        if (!feicao) return;
+
+        const propriedades = feicao.properties ?? {};
+        const balao =
+          camada === "atravessados"
+            ? config.concelhos[String(propriedades.nome)]
+            : {
+                titulo: String(propriedades.titulo ?? ""),
+                linhas: analisarLinhas(propriedades.linhas),
+              };
+        if (!balao) return;
+
+        const subtitulo =
+          camada === "pontos" ? String(propriedades.subtitulo ?? "") : "";
+        new maplibre.Popup({ closeButton: true, maxWidth: "18rem" })
+          .setLngLat(evento.lngLat)
+          .setDOMContent(conteudoBalao(balao, subtitulo))
+          .addTo(mapa);
+      });
+
+      mapa.on("mouseenter", camada, () => {
+        mapa.getCanvas().style.cursor = "pointer";
+      });
+      mapa.on("mouseleave", camada, () => {
+        mapa.getCanvas().style.cursor = "";
+      });
+    }
+  }
+
+  /** O MapLibre serializa as propriedades compostas das feicoes em texto. */
+  function analisarLinhas(valor: unknown): string[] {
+    if (Array.isArray(valor)) return valor.map(String);
+    if (typeof valor === "string") {
+      try {
+        const analisado = JSON.parse(valor);
+        return Array.isArray(analisado) ? analisado.map(String) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  function conteudoBalao(balao: Balao, subtitulo: string): HTMLElement {
+    const caixa = document.createElement("div");
+    caixa.className = "balao";
+
+    const titulo = document.createElement("strong");
+    titulo.textContent = balao.titulo;
+    caixa.append(titulo);
+
+    if (subtitulo) {
+      const nota = document.createElement("div");
+      nota.className = "balao-subtitulo";
+      nota.textContent = subtitulo;
+      caixa.append(nota);
+    }
+
+    const lista = document.createElement("ul");
+    for (const linha of balao.linhas) {
+      const item = document.createElement("li");
+      item.textContent = linha;
+      lista.append(item);
+    }
+    caixa.append(lista);
+    return caixa;
+  }
+</script>
+
+<style>
+  .mapa-bloco {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 3fr) minmax(13rem, 1fr);
+    align-items: start;
+  }
+
+  @media (max-width: 48rem) {
+    .mapa-bloco {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .mapa {
+    position: relative;
+    height: min(70vh, 34rem);
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+    overflow: hidden;
+    background: var(--fundo-suave);
+  }
+
+  .aviso-mapa {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    margin: 0;
+    padding: 1rem;
+    text-align: center;
+    color: var(--texto-suave);
+    font-size: 0.9rem;
+  }
+
+  .controlos {
+    display: grid;
+    gap: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .controlos fieldset {
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+    margin: 0;
+    padding: 0.6rem 0.8rem 0.8rem;
+    background: var(--fundo-caixa);
+  }
+
+  .controlos legend {
+    padding: 0 0.3rem;
+    color: var(--texto-suave);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .controlos label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.1rem 0;
+  }
+
+  .botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .botoes button {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.3rem;
+    background: var(--fundo-suave);
+    color: var(--texto);
+    cursor: pointer;
+  }
+
+  .legenda {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.15rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .legenda li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .amostra {
+    width: 1.4rem;
+    height: 0.2rem;
+    border-radius: 1px;
+    background: var(--tipo-parcial);
+  }
+
+  .amostra[data-isomagnitude="0.2"] {
+    background: #38bdf8;
+  }
+  .amostra[data-isomagnitude="0.4"] {
+    background: #22c55e;
+  }
+  .amostra[data-isomagnitude="0.6"] {
+    background: #22c55e;
+  }
+  .amostra[data-isomagnitude="0.8"] {
+    background: #a3b100;
+  }
+  .amostra[data-isomagnitude="0.9"] {
+    background: #f59e0b;
+  }
+  .amostra[data-isomagnitude="0.95"] {
+    background: #ef6a11;
+  }
+  .amostra[data-isomagnitude="0.99"] {
+    background: #dc2626;
+  }
+
+  :global(.maplibregl-popup-content) {
+    font-family: var(--tipografia-ui);
+    font-size: 0.85rem;
+    color: #1c1b19;
+  }
+
+  :global(.balao ul) {
+    margin: 0.3rem 0 0;
+    padding-left: 1rem;
+  }
+
+  :global(.balao-subtitulo) {
+    color: #56534d;
+    font-size: 0.8rem;
+  }
+</style>

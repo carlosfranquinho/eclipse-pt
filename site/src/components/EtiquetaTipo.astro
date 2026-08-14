@@ -1,0 +1,12 @@
+---
+import { NOMES_TIPO } from "../lib/formatacao";
+import type { TipoEclipse } from "../lib/tipos";
+
+interface Props {
+  tipo: TipoEclipse;
+}
+
+const { tipo } = Astro.props;
+---
+
+<span class:list={["etiqueta", `tipo-${tipo}`]}>{NOMES_TIPO[tipo]}</span>

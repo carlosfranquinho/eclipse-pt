@@ -1,0 +1,300 @@
+/* Folha de estilo unica do site. Poucas regras, todas com nomes em portugues,
+   e as cores todas em variaveis para o tema claro e escuro nao divergirem. */
+
+:root {
+  --fundo: #fbfaf7;
+  --fundo-caixa: #ffffff;
+  --fundo-suave: #f1efe9;
+  --texto: #1c1b19;
+  --texto-suave: #56534d;
+  --linha: #ddd9cf;
+  --realce: #7c3aed;
+  --realce-suave: #ede9fe;
+  --foco: #7c3aed;
+
+  --tipo-total: #4c1d95;
+  --tipo-anular: #b45309;
+  --tipo-hibrido: #0f766e;
+  --tipo-parcial: #64748b;
+
+  --largura: 68rem;
+  --raio: 0.5rem;
+  --tipografia: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --tipografia-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --tipografia-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #14131a;
+    --fundo-caixa: #1c1b24;
+    --fundo-suave: #24222e;
+    --texto: #eceaf3;
+    --texto-suave: #a5a1b4;
+    --linha: #35323f;
+    --realce: #c4b5fd;
+    --realce-suave: #2b2440;
+    --foco: #c4b5fd;
+
+    --tipo-total: #c4b5fd;
+    --tipo-anular: #fbbf24;
+    --tipo-hibrido: #5eead4;
+    --tipo-parcial: #94a3b8;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--tipografia-ui);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--tipografia);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-size: clamp(1.8rem, 1.2rem + 2.2vw, 2.6rem);
+}
+
+h2 {
+  font-size: 1.4rem;
+  margin-top: 2.5rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+  margin-top: 1.5rem;
+}
+
+a {
+  color: inherit;
+  text-decoration-color: var(--realce);
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.envolvente {
+  max-width: var(--largura);
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.saltar {
+  position: absolute;
+  left: -9999px;
+}
+
+.saltar:focus {
+  position: static;
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--realce-suave);
+}
+
+/* Cabecalho e rodape */
+
+.cabecalho {
+  border-bottom: 1px solid var(--linha);
+  background: var(--fundo-caixa);
+}
+
+.cabecalho .envolvente {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-block: 0.9rem;
+}
+
+.cabecalho a {
+  text-decoration: none;
+}
+
+.marca {
+  font-family: var(--tipografia);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.navegacao {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.95rem;
+}
+
+.navegacao a[aria-current="page"] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.rodape {
+  margin-top: 4rem;
+  border-top: 1px solid var(--linha);
+  background: var(--fundo-caixa);
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.rodape .envolvente {
+  padding-block: 1.5rem 2.5rem;
+}
+
+.rodape p {
+  margin: 0.35rem 0;
+}
+
+main {
+  padding-block: 2rem;
+}
+
+/* Etiquetas de tipo de eclipse */
+
+.etiqueta {
+  display: inline-block;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.tipo-total {
+  color: var(--tipo-total);
+}
+.tipo-anular {
+  color: var(--tipo-anular);
+}
+.tipo-hibrido {
+  color: var(--tipo-hibrido);
+}
+.tipo-parcial {
+  color: var(--tipo-parcial);
+}
+
+/* Tabelas */
+
+.tabela-envolvente {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--linha);
+  vertical-align: baseline;
+}
+
+th {
+  font-weight: 600;
+  color: var(--texto-suave);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Cabecalho de linha: e um th por semantica, mas le-se como conteudo. */
+th[scope="row"] {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.92rem;
+  color: var(--texto);
+}
+
+td.numero,
+th.numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Caixas e notas */
+
+.caixa {
+  background: var(--fundo-caixa);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  padding: 1rem 1.25rem;
+}
+
+.nota {
+  border-left: 3px solid var(--realce);
+  background: var(--fundo-suave);
+  padding: 0.75rem 1rem;
+  border-radius: 0 var(--raio) var(--raio) 0;
+  font-size: 0.9rem;
+  color: var(--texto-suave);
+  margin: 1rem 0;
+}
+
+.nota p {
+  margin: 0;
+}
+
+.dados {
+  display: grid;
+  /* O rotulo nunca passa de metade da caixa, para o valor nao ficar espremido
+     numa coluna de duas letras. */
+  grid-template-columns: minmax(0, 45%) minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.dados dt {
+  color: var(--texto-suave);
+}
+
+.dados dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.grelha {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+
+/* Sem JavaScript, os filtros seriam um painel que nao filtra nada. */
+html:not(.js) .so-com-js {
+  display: none;
+}
+
+.discreto {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}

@@ -1,0 +1,145 @@
+---
+import { t } from "../i18n";
+import {
+  NOMES_TIPO,
+  dataPorExtenso,
+  dataVigente,
+  magnitude,
+  partesData,
+} from "../lib/formatacao";
+import type { EntradaIndice } from "../lib/tipos";
+import { urlEclipse } from "../lib/urls";
+import { atributosFiltro } from "../lib/filtros";
+
+interface Props {
+  eclipses: EntradaIndice[];
+  inicio?: number;
+  fim?: number;
+}
+
+const { eclipses, inicio = 1500, fim = 2100 } = Astro.props;
+const amplitude = fim - inicio;
+
+/** Posicao horizontal em percentagem, ao dia. */
+function posicao(iso: string): number {
+  const [ano, mes, dia] = partesData(iso);
+  const fraccao = (mes - 1) / 12 + (dia - 1) / 365;
+  return ((ano + fraccao - inicio) / amplitude) * 100;
+}
+
+const marcas = eclipses.map((eclipse) => {
+  const { principal } = dataVigente(eclipse);
+  return {
+    eclipse,
+    esquerda: posicao(eclipse.data_gregoriana),
+    // A altura da marca le-se como profundidade do eclipse: 0,2 quase nao se
+    // ve, 1,0 chega ao topo.
+    altura: Math.max(18, Math.min(100, eclipse.pt.magnitude_max * 100)),
+    rotulo: `${dataPorExtenso(principal)}, ${NOMES_TIPO[
+      eclipse.tipo
+    ].toLowerCase()}, magnitude ${magnitude(eclipse.pt.magnitude_max)}`,
+  };
+});
+
+const escalas: number[] = [];
+for (let ano = inicio; ano <= fim; ano += 50) escalas.push(ano);
+---
+
+<figure class="linha-temporal">
+  <figcaption class="discreto">{t("inicio.linha_temporal_ajuda")}</figcaption>
+  <div class="pista" aria-hidden="true">
+    {
+      marcas.map(({ eclipse, esquerda, altura, rotulo }) => (
+        <a
+          class:list={["marca-eclipse", `tipo-${eclipse.tipo}`]}
+          href={urlEclipse(eclipse.id)}
+          title={rotulo}
+          tabindex="-1"
+          style={`left:${esquerda.toFixed(3)}%;height:${altura.toFixed(1)}%`}
+          {...atributosFiltro(eclipse)}
+        />
+      ))
+    }
+  </div>
+  <div class="escala" aria-hidden="true">
+    {
+      escalas.map((ano) => (
+        <span
+          class:list={["ano", ano % 100 !== 0 && "meio-seculo"]}
+          style={`left:${(((ano - inicio) / amplitude) * 100).toFixed(3)}%`}
+        >
+          {ano}
+        </span>
+      ))
+    }
+  </div>
+</figure>
+
+<style>
+  .linha-temporal {
+    margin: 0 0 2rem;
+  }
+
+  .linha-temporal figcaption {
+    margin-bottom: 0.5rem;
+  }
+
+  .pista {
+    position: relative;
+    height: 6rem;
+    background: var(--fundo-caixa);
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+  }
+
+  .marca-eclipse {
+    position: absolute;
+    bottom: 0;
+    width: 3px;
+    margin-left: -1.5px;
+    background: currentcolor;
+    border-radius: 1px;
+    opacity: 0.75;
+  }
+
+  .marca-eclipse:hover {
+    opacity: 1;
+    width: 5px;
+    margin-left: -2.5px;
+  }
+
+  .marca-eclipse[hidden] {
+    display: none;
+  }
+
+  .escala {
+    position: relative;
+    height: 1.5rem;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--texto-suave);
+  }
+
+  .ano {
+    position: absolute;
+    transform: translateX(-50%);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Em ecra estreito os rotulos de meio seculo colidiriam uns com os outros. */
+  @media (max-width: 40rem) {
+    .meio-seculo {
+      display: none;
+    }
+  }
+
+  .ano::before {
+    content: "";
+    position: absolute;
+    top: -0.35rem;
+    left: 50%;
+    width: 1px;
+    height: 0.3rem;
+    background: var(--linha);
+  }
+</style>

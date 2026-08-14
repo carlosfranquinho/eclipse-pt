@@ -29,6 +29,27 @@ uv run pytest                                    # validação completa
 Os passos são independentes e a ordem acima é a das dependências entre eles. As
 descargas ficam em cache local, fora do git; só os dados derivados são commitados.
 
+## Correr o site
+
+```sh
+cd site
+npm ci
+npm run dev          # servidor de desenvolvimento
+npm run check        # tipos e diagnósticos do Astro
+npm run build        # build estática para site/dist/
+npm run preview      # servir a build, com o mesmo caminho base da publicação
+```
+
+O site é publicado numa página de projeto do GitHub Pages, por isso a build usa
+`base: "/eclipse-pt/"`. Para servir noutro caminho, definir `SITE_BASE` (por exemplo
+`SITE_BASE=/ npm run build`); nenhum URL interno é escrito à mão, todos passam por
+`caminho()` em `site/src/lib/urls.ts`.
+
+O `npm run build` e o `npm run dev` copiam antes o MapLibre de `node_modules` para
+`site/public/vendor/maplibre/`, que fica fora do git. A biblioteca tem de ser servida
+como está e importada em tempo de execução: empacotá-la parte o caminho do worker que
+ela própria calcula, e o mapa ficaria sem fontes de dados, sem dar erro.
+
 ## Convenções do projeto
 
 - Português europeu. Evitar brasileirismos ("rever" e não "revisar", "ficheiro" e não

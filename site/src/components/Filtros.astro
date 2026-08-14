@@ -1,0 +1,287 @@
+---
+import { t } from "../i18n";
+import { NOMES_TERRITORIO, NOMES_TIPO } from "../lib/formatacao";
+import type { EntradaIndice, Territorio, TipoEclipse } from "../lib/tipos";
+import { periodos } from "../lib/filtros";
+
+interface Props {
+  eclipses: EntradaIndice[];
+}
+
+const { eclipses } = Astro.props;
+const tipos = Object.keys(NOMES_TIPO) as TipoEclipse[];
+const territorios = Object.keys(NOMES_TERRITORIO) as Territorio[];
+const intervalos = periodos(eclipses);
+---
+
+<form id="filtros" class="filtros caixa so-com-js" aria-label={t("filtros.titulo")}>
+  <fieldset>
+    <legend>{t("filtros.tipo")}</legend>
+    <div class="opcoes">
+      {
+        tipos.map((tipo) => (
+          <label>
+            <input type="checkbox" name="tipo" value={tipo} />
+            {NOMES_TIPO[tipo]}
+          </label>
+        ))
+      }
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>{t("filtros.territorio")}</legend>
+    <div class="opcoes">
+      {
+        territorios.map((territorio) => (
+          <label>
+            <input type="checkbox" name="territorio" value={territorio} />
+            {NOMES_TERRITORIO[territorio]}
+          </label>
+        ))
+      }
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>{t("filtros.periodo")}</legend>
+    <div class="opcoes">
+      <label>
+        <input type="radio" name="quando" value="todos" checked />
+        {t("filtros.periodo_todos")}
+      </label>
+      <label>
+        <input type="radio" name="quando" value="futuros" />
+        {t("filtros.periodo_futuros")}
+      </label>
+      <label>
+        <input type="radio" name="quando" value="passados" />
+        {t("filtros.periodo_passados")}
+      </label>
+    </div>
+  </fieldset>
+
+  <div class="campo">
+    <label for="filtro-intervalo">{t("filtros.seculo")}</label>
+    <select id="filtro-intervalo" name="intervalo">
+      <option value="">{t("filtros.seculo_todos")}</option>
+      {
+        intervalos.map((ano) => (
+          <option value={ano}>
+            {ano} - {ano + 99}
+          </option>
+        ))
+      }
+    </select>
+  </div>
+
+  <div class="campo">
+    <label for="filtro-magnitude">{t("filtros.magnitude_minima")}</label>
+    <div class="deslizador">
+      <input
+        type="range"
+        id="filtro-magnitude"
+        name="magnitude"
+        min="0"
+        max="1"
+        step="0.05"
+        value="0"
+      />
+      <output id="valor-magnitude" for="filtro-magnitude">0,00</output>
+    </div>
+  </div>
+
+  <div class="campo campo-largo">
+    <label>
+      <input type="checkbox" name="faixa" value="1" />
+      {t("filtros.faixa_central")}
+    </label>
+  </div>
+
+  <div class="rodape-filtros">
+    <button type="reset">{t("filtros.limpar")}</button>
+    <p
+      id="contagem-filtros"
+      class="discreto"
+      role="status"
+      data-modelo={t("filtros.resultados")}
+    >
+    </p>
+  </div>
+</form>
+
+<p id="sem-resultados" class="nota" hidden>{t("filtros.sem_resultados")}</p>
+
+<script>
+  const forma = document.getElementById("filtros") as HTMLFormElement | null;
+  const contagem = document.getElementById("contagem-filtros");
+  const semResultados = document.getElementById("sem-resultados");
+
+  if (forma && contagem) {
+    // A lista e a linha temporal partilham os mesmos data-*, por isso um
+    // eclipse aparece aqui tantas vezes quantas as representacoes que tem.
+    const elementos = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-eclipse]"),
+    );
+    const total = new Set(elementos.map((el) => el.dataset.eclipse)).size;
+    const modelo = contagem.dataset.modelo ?? "{visiveis}/{total}";
+    const saidaMagnitude = document.getElementById(
+      "valor-magnitude",
+    ) as HTMLOutputElement | null;
+
+    // O site e estatico: "por observar" tem de ser medido contra a data de
+    // hoje no browser, nao contra a data da build.
+    const hoje = new Date().toISOString().slice(0, 10);
+
+    const marcados = (nome: string) =>
+      Array.from(
+        forma.querySelectorAll<HTMLInputElement>(
+          `input[name="${nome}"]:checked`,
+        ),
+      ).map((entrada) => entrada.value);
+
+    function aplicar() {
+      const dados = new FormData(forma!);
+      const tipos = marcados("tipo");
+      const territorios = marcados("territorio");
+      const intervalo = String(dados.get("intervalo") ?? "");
+      const magnitudeMinima = Number(dados.get("magnitude") ?? 0);
+      const soFaixa = dados.get("faixa") === "1";
+      const quando = String(dados.get("quando") ?? "todos");
+
+      const visiveis = new Set<string>();
+      for (const elemento of elementos) {
+        const d = elemento.dataset;
+        const territoriosDoEclipse = (d.territorios ?? "").split(" ");
+        const passa =
+          (tipos.length === 0 || tipos.includes(d.tipo ?? "")) &&
+          (territorios.length === 0 ||
+            territorios.some((territorio) =>
+              territoriosDoEclipse.includes(territorio),
+            )) &&
+          (intervalo === "" || d.periodo === intervalo) &&
+          Number(d.magnitude ?? 0) >= magnitudeMinima &&
+          (!soFaixa || d.faixa === "1") &&
+          (quando === "todos" ||
+            (quando === "futuros"
+              ? (d.data ?? "") >= hoje
+              : (d.data ?? "") < hoje));
+
+        elemento.hidden = !passa;
+        if (passa && d.eclipse) visiveis.add(d.eclipse);
+      }
+
+      contagem!.textContent = modelo
+        .replace("{visiveis}", String(visiveis.size))
+        .replace("{total}", String(total));
+      if (semResultados) semResultados.hidden = visiveis.size > 0;
+      if (saidaMagnitude) {
+        saidaMagnitude.textContent = magnitudeMinima.toLocaleString("pt-PT", {
+          minimumFractionDigits: 2,
+        });
+      }
+    }
+
+    forma.addEventListener("input", aplicar);
+    // O reset repoe os campos depois do evento, por isso espera-se um tick.
+    forma.addEventListener("reset", () => window.setTimeout(aplicar, 0));
+    aplicar();
+  }
+</script>
+
+<style>
+  .filtros {
+    display: grid;
+    gap: 1rem 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    margin-bottom: 1.5rem;
+    font-size: 0.92rem;
+  }
+
+  fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  legend,
+  .campo > label {
+    padding: 0;
+    color: var(--texto-suave);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  .opcoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 1rem;
+  }
+
+  .opcoes label,
+  .campo-largo label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.92rem;
+    color: var(--texto);
+    margin: 0;
+  }
+
+  select {
+    width: 100%;
+    padding: 0.3rem 0.4rem;
+    background: var(--fundo);
+    color: var(--texto);
+    border: 1px solid var(--linha);
+    border-radius: 0.3rem;
+    font: inherit;
+  }
+
+  .deslizador {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .deslizador input {
+    flex: 1;
+    accent-color: var(--realce);
+  }
+
+  output {
+    font-variant-numeric: tabular-nums;
+    min-width: 2.5rem;
+  }
+
+  .rodape-filtros {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    grid-column: 1 / -1;
+  }
+
+  .rodape-filtros p {
+    margin: 0;
+  }
+
+  button {
+    font: inherit;
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.3rem;
+    background: var(--fundo-suave);
+    color: var(--texto);
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: var(--realce);
+  }
+</style>

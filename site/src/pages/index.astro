@@ -1,0 +1,54 @@
+---
+import Base from "../layouts/Base.astro";
+import CartaoEclipse from "../components/CartaoEclipse.astro";
+import Filtros from "../components/Filtros.astro";
+import LinhaTemporal from "../components/LinhaTemporal.astro";
+import ListaEclipses from "../components/ListaEclipses.astro";
+import { t } from "../i18n";
+import { indice } from "../lib/dados";
+
+const eclipses = indice();
+const comFaixa = eclipses.filter((e) => e.pt.faixa_central).length;
+
+// A data da build serve so para escolher os eclipses em destaque. O filtro
+// "por observar" da lista usa a data real do browser.
+const hoje = new Date().toISOString().slice(0, 10);
+const proximos = eclipses.filter((e) => e.data_gregoriana >= hoje).slice(0, 3);
+---
+
+<Base titulo={t("site.titulo")} seccao="inicio">
+  <h1>{t("site.titulo")}</h1>
+  <p class="introducao">
+    {t("inicio.introducao", { total: eclipses.length, faixa: comFaixa })}
+  </p>
+
+  <h2>{t("inicio.proximos")}</h2>
+  <p class="discreto">{t("inicio.proximos_ajuda")}</p>
+  {
+    proximos.length > 0 ? (
+      <div class="grelha">
+        {proximos.map((eclipse) => (
+          <CartaoEclipse eclipse={eclipse} />
+        ))}
+      </div>
+    ) : (
+      <p>{t("inicio.proximos_vazio")}</p>
+    )
+  }
+
+  <h2>{t("inicio.linha_temporal")}</h2>
+  <LinhaTemporal eclipses={eclipses} />
+
+  <h2 class="so-com-js">{t("filtros.titulo")}</h2>
+  <Filtros eclipses={eclipses} />
+
+  <ListaEclipses eclipses={eclipses} />
+</Base>
+
+<style>
+  .introducao {
+    font-family: var(--tipografia);
+    font-size: 1.15rem;
+    max-width: 44rem;
+  }
+</style>

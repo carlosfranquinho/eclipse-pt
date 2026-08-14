@@ -1,0 +1,58 @@
+---
+import EtiquetaTipo from "./EtiquetaTipo.astro";
+import { t } from "../i18n";
+import {
+  NOMES_TERRITORIO,
+  dataPorExtenso,
+  dataVigente,
+  magnitude,
+} from "../lib/formatacao";
+import type { EntradaIndice } from "../lib/tipos";
+import { urlEclipse } from "../lib/urls";
+
+interface Props {
+  eclipse: EntradaIndice;
+}
+
+const { eclipse } = Astro.props;
+const { principal } = dataVigente(eclipse);
+const territorios = eclipse.pt.territorios_visiveis
+  .map((territorio) => NOMES_TERRITORIO[territorio])
+  .join(", ");
+---
+
+<article class="caixa cartao">
+  <EtiquetaTipo tipo={eclipse.tipo} />
+  <h3>
+    <a href={urlEclipse(eclipse.id)}>{dataPorExtenso(principal)}</a>
+  </h3>
+  <dl class="dados">
+    <dt>{t("ficha.magnitude_maxima")}</dt>
+    <dd>{magnitude(eclipse.pt.magnitude_max)}</dd>
+    <dt>{t("lista.territorios")}</dt>
+    <dd>{territorios}</dd>
+    {
+      eclipse.pt.faixa_central && (
+        <>
+          <dt>{t("lista.faixa_central")}</dt>
+          <dd>{t("lista.sim")}</dd>
+        </>
+      )
+    }
+  </dl>
+</article>
+
+<style>
+  .cartao h3 {
+    margin: 0.4rem 0 0.6rem;
+    font-size: 1.15rem;
+  }
+
+  .cartao h3 a {
+    text-decoration: none;
+  }
+
+  .cartao h3 a:hover {
+    text-decoration: underline;
+  }
+</style>
