@@ -15,3 +15,7 @@ pipeline/cache/skyfield/
 
 # Sistema
 .DS_Store
+
+# Descarga bruta do canon: 12,7 MB e regeneravel por ingest_canon.py.
+# O cache normalizado (canon.json) e que fica commitado.
+pipeline/cache/canon/FiveMillenniumCanonOfSolarEclipses*.json
