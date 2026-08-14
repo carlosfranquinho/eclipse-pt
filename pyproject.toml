@@ -5,13 +5,14 @@ description = "Eclipses solares visiveis em Portugal entre 1500 e 2100"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.0",
+    "shapely>=2.0",
+    "contourpy>=1.2",
+    "pyproj>=3.6",
 ]
 
 [project.optional-dependencies]
 # Auditoria independente do nucleo besseliano, a partir de efemerides JPL.
 auditoria = ["skyfield>=1.49"]
-# Geometria e contornos, usados a partir do M2.
-geo = ["shapely>=2.0", "contourpy>=1.2", "pyproj>=3.6"]
 dev = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]

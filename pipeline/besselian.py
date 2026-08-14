@@ -537,49 +537,95 @@ def _para_versor(lat_graus: Any, lon_graus: Any) -> Any:
     )
 
 
-def largura_faixa_km(e: Elementos, t: float) -> float:
-    """Largura da faixa central na superficie, em quilometros.
+def limites_faixa(e: Elementos, t: float) -> dict[str, Any] | None:
+    """Pontos extremos da faixa central num instante: limite norte e limite sul.
 
-    Mede-se a extensao angular do contorno da umbra na direccao perpendicular ao
-    movimento da linha central, que e como a largura da faixa e convencionalmente
-    definida. Uma formula fechada a partir do raio do cone daria a elongacao
-    maxima da elipse da sombra, que e outra coisa e sobrestima a faixa sempre que
-    o Sol nao esta perto do zenite.
+    Mede-se o contorno real da umbra na direccao perpendicular ao movimento da
+    linha central, e ficam-se com os dois pontos extremos. E daqui que sai o
+    poligono da faixa, tracado como duas curvas em vez de uma uniao de sombras.
 
-    Devolve NaN quando a sombra roca o terminador, porque ai o contorno sai
-    parcialmente da Terra e a nocao de largura deixa de ter significado pratico.
+    A diferenca importa. Unir as sombras instante a instante so funciona enquanto
+    duas sombras consecutivas se sobrepoem, o que falha assim que a faixa e mais
+    estreita do que a sombra avanca entre passos: o poligono sai em fragmentos
+    soltos. Tracar os limites nao tem esse problema, e serve tanto uma faixa de
+    quatrocentos quilometros como a de um quilometro do hibrido de 1912.
+
+    Devolve None quando o eixo passa ao lado da Terra, ou quando a sombra roca o
+    terminador e o contorno sai parcialmente fora do globo.
     """
     centro = linha_central(e, t)
     if not bool(centro["existe"]):
-        return float("nan")
+        return None
 
     passo = 1.0 / 60.0
     antes = linha_central(e, t - passo)
     depois = linha_central(e, t + passo)
     if not (bool(antes["existe"]) and bool(depois["existe"])):
-        return float("nan")
+        return None
 
     contorno = contorno_sombra(e, t, n_pontos=360)
     if not np.all(contorno["existe"]):
-        return float("nan")
+        return None
 
     centro_v = _para_versor(centro["lat"], centro["lon"])
     movimento = _para_versor(depois["lat"], depois["lon"]) - _para_versor(
         antes["lat"], antes["lon"]
     )
-    # Componente do movimento tangente a superficie no ponto central.
     movimento = movimento - centro_v * np.dot(movimento, centro_v)
     norma = np.linalg.norm(movimento)
     if norma == 0.0:
-        return float("nan")
+        return None
     movimento = movimento / norma
 
-    # Versor perpendicular ao movimento e tangente a superficie.
+    # Perpendicular ao movimento e tangente a superficie. O produto externo com o
+    # versor do centro da-lhe um sentido consistente, que se usa para separar o
+    # limite norte do limite sul.
     perpendicular = np.cross(centro_v, movimento)
 
     pontos = _para_versor(contorno["lat"], contorno["lon"])
     projeccao = pontos @ perpendicular
-    return float(np.ptp(np.arcsin(projeccao)) * RAIO_EQUATORIAL_KM)
+    esquerda = int(np.argmax(projeccao))
+    direita = int(np.argmin(projeccao))
+
+    largura = float(np.arcsin(projeccao[esquerda]) - np.arcsin(projeccao[direita]))
+
+    def ponto(indice: int) -> tuple[float, float]:
+        return (float(contorno["lat"][indice]), float(contorno["lon"][indice]))
+
+    # Esquerda e direita relativamente ao sentido do movimento da sombra. Esta e
+    # a atribuicao a usar para tracar a faixa como poligono, porque e estavel ao
+    # longo de toda a trajectoria.
+    #
+    # Classificar os bordos por latitude, que seria o instinto imediato, parte o
+    # poligono: quando a sombra vira para norte os dois bordos ficam a mesma
+    # latitude, a atribuicao troca entre passos consecutivos, a fita cruza-se e a
+    # reparacao da geometria come-lhe o meio.
+    lado_esquerdo = ponto(esquerda)
+    lado_direito = ponto(direita)
+    norte, sul = (
+        (lado_esquerdo, lado_direito)
+        if lado_esquerdo[0] >= lado_direito[0]
+        else (lado_direito, lado_esquerdo)
+    )
+
+    return {
+        "centro": (float(centro["lat"]), float(centro["lon"])),
+        "esquerda": lado_esquerdo,
+        "direita": lado_direito,
+        "norte": norte,
+        "sul": sul,
+        "largura_km": largura * RAIO_EQUATORIAL_KM,
+    }
+
+
+def largura_faixa_km(e: Elementos, t: float) -> float:
+    """Largura da faixa central na superficie, em quilometros.
+
+    Devolve NaN quando a sombra roca o terminador e a nocao de largura deixa de
+    ter significado pratico.
+    """
+    limites = limites_faixa(e, t)
+    return float("nan") if limites is None else limites["largura_km"]
 
 
 # ---------------------------------------------------------------------------
@@ -652,3 +698,56 @@ def magnitude_maxima_na_grelha(
         "magnitude": np.maximum(melhor, refinada),
         "t_maximo_td": instante,
     }
+
+
+def instante_maximo_em_pontos(
+    e: Elementos,
+    lat_graus: Any,
+    lon_graus: Any,
+    altura_m: Any = 0.0,
+    janela_horas: float = 4.0,
+    passo_minutos: float = 20.0,
+    t_inicial: Any = None,
+) -> Any:
+    """Instante de maximo eclipse em cada ponto de uma lista, vectorizado.
+
+    Faz-se em duas passagens, como na grelha: um varrimento grosseiro que localiza
+    a aproximacao maxima do eixo da sombra a cada ponto, e depois Newton sobre a
+    condicao de minimo da distancia ao eixo.
+
+    O varrimento grosseiro nao serve para exactidao, serve para garantir que o
+    Newton parte da bacia certa. Sem ele, pontos longe da sombra podem convergir
+    para o instante errado.
+
+    `t_inicial` permite saltar o varrimento quando ja se conhece a vizinhanca do
+    maximo, por exemplo por se ter sondado antes um punhado de pontos da regiao.
+    Num territorio pequeno todos os pontos atingem o maximo com poucos minutos de
+    diferenca, e o varrimento sobre a grelha inteira seria desperdicio.
+    """
+    lat = np.asarray(lat_graus, dtype=float)
+    lon = np.asarray(lon_graus, dtype=float)
+
+    if t_inicial is not None:
+        melhor_t = np.broadcast_to(
+            np.asarray(t_inicial, dtype=float), lat.shape
+        ).astype(float).copy()
+    else:
+        melhor_t = np.zeros_like(lat)
+        melhor_separacao = np.full_like(lat, np.inf)
+
+        passo = passo_minutos / 60.0
+        for t in np.arange(-janela_horas, janela_horas + passo / 2, passo):
+            u, v, _, _, _, _ = _u_v_e_derivadas(e, t, lat, lon, altura_m)
+            separacao = np.hypot(u, v)
+            melhorou = separacao < melhor_separacao
+            melhor_separacao = np.where(melhorou, separacao, melhor_separacao)
+            melhor_t = np.where(melhorou, t, melhor_t)
+
+    for _ in range(6):
+        u, v, du, dv, _, _ = _u_v_e_derivadas(e, melhor_t, lat, lon, altura_m)
+        n2 = du * du + dv * dv
+        with np.errstate(invalid="ignore", divide="ignore"):
+            correccao = np.where(n2 > 0, -(u * du + v * dv) / n2, 0.0)
+        melhor_t = melhor_t + np.nan_to_num(correccao)
+
+    return melhor_t

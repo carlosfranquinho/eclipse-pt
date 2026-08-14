@@ -14,6 +14,21 @@ origem está em [`plano-inicial.md`](plano-inicial.md), mantido para registo.
 - `site/public/data/` guarda os dados gerados pelo pipeline, commitados no repositório
   para o build do site não depender de Python.
 
+## Correr o pipeline
+
+```sh
+uv venv && uv pip install -e ".[dev]"
+uv run python pipeline/ingest_canon.py           # elementos besselianos e Saros
+uv run python pipeline/build_geo.py              # CAOP para GeoJSON
+uv run python pipeline/build_index.py            # índice de eclipses visíveis
+uv run python pipeline/build_paths.py            # faixas e isomagnitudes
+uv run python pipeline/crossed_municipalities.py # concelhos atravessados
+uv run pytest                                    # validação completa
+```
+
+Os passos são independentes e a ordem acima é a das dependências entre eles. As
+descargas ficam em cache local, fora do git; só os dados derivados são commitados.
+
 ## Convenções do projeto
 
 - Português europeu. Evitar brasileirismos ("rever" e não "revisar", "ficheiro" e não

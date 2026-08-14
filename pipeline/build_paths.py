@@ -1,0 +1,440 @@
+"""Gera a cartografia de cada eclipse: linha central, faixa e isomagnitudes.
+
+So corre para os eclipses acima do limiar de dados pesados. Os restantes ficam no
+indice com os numeros essenciais, sem cartografia propria, porque uma parcial de
+dez por cento nao justifica meio megabyte de contornos.
+
+Tudo aqui sai dos elementos besselianos por via analitica. Nao ha varrimento de
+grelha para tracar a faixa, e por isso nao ha o problema classico da faixa a sair
+aos blocos quando o passo temporal e grande demais.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+from contourpy import contour_generator
+from shapely.geometry import LineString, MultiPolygon, Polygon, mapping
+from shapely.ops import unary_union
+
+import besselian as b
+
+RAIZ = Path(__file__).resolve().parents[1]
+DADOS = RAIZ / "site" / "public" / "data"
+
+# Janela cartografica: a Peninsula Iberica mais o Atlantico ate aos Acores, para
+# a linha central chegar ao mapa inteira em vez de aparecer cortada a meio.
+JANELA = {"lat_min": 25.0, "lat_max": 50.0, "lon_min": -40.0, "lon_max": 5.0}
+
+# Caixas por territorio, para as isomagnitudes terem resolucao util em cada um
+# sem se calcular uma grelha enorme sobre o oceano que os separa.
+CAIXAS = {
+    "continente": (36.0, 43.0, -10.5, -5.5),
+    "acores": (36.0, 40.5, -32.0, -24.0),
+    "madeira": (29.5, 33.8, -18.0, -15.0),
+}
+
+NIVEIS_ISOMAGNITUDE = [0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99]
+
+# Abaixo desta largura, desenhar a faixa como poligono seria uma mentira visual:
+# a escala do mapa, um poligono de um quilometro e mais fino que o traco. Nesses
+# casos marca-se so a linha central, e a ficha explica porque.
+LARGURA_MINIMA_POLIGONO_KM = 2.0
+
+PASSO_LINHA_CENTRAL_S = 20.0
+# Quatro quilometros. As isomagnitudes sao curvas suaves a escala de um pais;
+# uma grelha mais fina multiplicava o custo sem mudar o desenho.
+PASSO_GRELHA_ISOMAGNITUDE = 0.04
+
+
+def _na_janela(lat: float, lon: float) -> bool:
+    return (
+        JANELA["lat_min"] <= lat <= JANELA["lat_max"]
+        and JANELA["lon_min"] <= lon <= JANELA["lon_max"]
+    )
+
+
+def linha_central_na_janela(el: b.Elementos) -> list[dict]:
+    """Amostra a linha central e devolve os troços que caem na janela do mapa.
+
+    Devolve varios troços porque a linha pode entrar e sair da janela, e uni-los
+    daria um segmento a atravessar o mapa por onde a sombra nunca passou.
+    """
+    passo = PASSO_LINHA_CENTRAL_S / 3600.0
+    trocos: list[list[tuple[float, float, float]]] = []
+    actual: list[tuple[float, float, float]] = []
+
+    for t in np.arange(-4.0, 4.0 + passo / 2, passo):
+        ponto = b.linha_central(el, t)
+        if bool(ponto["existe"]):
+            lat, lon = float(ponto["lat"]), float(ponto["lon"])
+            if _na_janela(lat, lon):
+                actual.append((lon, lat, float(t)))
+                continue
+        if actual:
+            trocos.append(actual)
+            actual = []
+    if actual:
+        trocos.append(actual)
+
+    return [
+        {
+            "coordenadas": [(lon, lat) for lon, lat, _ in troco],
+            "t_inicio": troco[0][2],
+            "t_fim": troco[-1][2],
+        }
+        for troco in trocos
+        if len(troco) >= 2
+    ]
+
+
+def _pontos_na_terra(contorno: dict) -> list[tuple[float, float]]:
+    """Pontos do contorno da umbra que caem na Terra, em ordem, como (lon, lat)."""
+    existe = np.asarray(contorno["existe"])
+    if not existe.any():
+        return []
+    return [
+        (float(contorno["lon"][i]), float(contorno["lat"][i]))
+        for i in np.flatnonzero(existe)
+    ]
+
+
+def _janela_temporal(el: b.Elementos) -> tuple[float, float] | None:
+    """Intervalo em que a umbra toca a Terra dentro da janela do mapa.
+
+    Varre-se com passo largo e poucos pontos de contorno, so para delimitar o
+    intervalo. O trabalho fino faz-se depois, so onde interessa.
+
+    Nao se usa a linha central para isto. Nos eclipses ao nascer ou ao por do
+    Sol, o eixo da sombra falha a Terra enquanto o cone ainda lhe toca junto ao
+    limbo, e nesses casos nao ha linha central nenhuma apesar de haver faixa.
+    """
+    passo = 2.0 / 60.0
+    instantes = []
+    for t in np.arange(-4.0, 4.0 + passo / 2, passo):
+        contorno = b.contorno_sombra(el, t, n_pontos=24)
+        if any(_na_janela(lat, lon) for lon, lat in _pontos_na_terra(contorno)):
+            instantes.append(float(t))
+    if not instantes:
+        return None
+    return (min(instantes) - passo, max(instantes) + passo)
+
+
+def faixa_na_janela(
+    el: b.Elementos, janela_t: tuple[float, float] | None
+) -> tuple[object | None, list[dict]]:
+    """Poligono da faixa central dentro da janela, e o perfil de largura.
+
+    A faixa constroi-se de duas maneiras conforme a geometria, e e preciso as
+    duas para cobrir todos os casos que Portugal apanha.
+
+    Quando o eixo da sombra atinge a Terra, tracam-se os limites norte e sul e
+    ligam-se instantes consecutivos por quadrilateros. Isto resolve o problema
+    classico da faixa aos blocos: unir sombras instante a instante so funciona
+    enquanto duas sombras consecutivas se sobrepoem, e falha exactamente nos
+    casos mais interessantes, como o hibrido de 1912 com um quilometro de
+    largura, que saia em dezenas de fragmentos soltos.
+
+    Quando o eixo falha a Terra mas o cone ainda lhe toca de raspao, junto ao
+    limbo, nao ha linha central mas ha faixa. Acontece nos eclipses ao nascer ou
+    ao por do Sol, e em Portugal nao e raro: 1683, 1842 e 2026 sao todos assim. A
+    faixa sai entao do proprio contorno da sombra, fechado pela corda que
+    substitui a parte que caiu fora do globo.
+    """
+    if janela_t is None:
+        return None, []
+
+    passo = 20.0 / 3600.0
+    perfil = []
+    limites_seguidos: list[tuple] = []
+    formas = []
+
+    # A fita parte-se em trocos curtos antes de se fazer o poligono. Uma fita
+    # que atravesse meio mundo tem curvatura suficiente para se cruzar a si
+    # propria, e a reparacao da geometria resolveria isso deitando fora o meio.
+    PASSOS_POR_TROCO = 40
+
+    def fechar_fita() -> None:
+        """Converte a sequencia de limites acumulada em fitas e guarda-as."""
+        if len(limites_seguidos) >= 2:
+            for inicio in range(0, len(limites_seguidos) - 1, PASSOS_POR_TROCO):
+                troco = limites_seguidos[inicio : inicio + PASSOS_POR_TROCO + 1]
+                if len(troco) < 2:
+                    continue
+                # Esquerda e direita face ao movimento, nao norte e sul: e a
+                # unica atribuicao que se mantem coerente quando a sombra vira.
+                esquerda = [(lim["esquerda"][1], lim["esquerda"][0]) for lim in troco]
+                direita = [(lim["direita"][1], lim["direita"][0]) for lim in troco]
+                fita = Polygon(esquerda + list(reversed(direita)))
+                if not fita.is_valid:
+                    fita = fita.buffer(0)
+                if not fita.is_empty:
+                    formas.append(fita)
+        limites_seguidos.clear()
+
+    for t in np.arange(janela_t[0], janela_t[1] + passo / 2, passo):
+        limites = b.limites_faixa(el, t)
+
+        if limites is not None:
+            lat_centro, lon_centro = limites["centro"]
+            if _na_janela(lat_centro, lon_centro):
+                limites_seguidos.append(limites)
+                perfil.append(
+                    {
+                        "t": round(float(t), 5),
+                        "lat": round(lat_centro, 4),
+                        "lon": round(lon_centro, 4),
+                        "largura_km": round(limites["largura_km"], 3),
+                        "eixo_na_terra": True,
+                    }
+                )
+                continue
+            fechar_fita()
+            continue
+
+        # Sem eixo na Terra: aproveita-se a parte do contorno que la esta.
+        fechar_fita()
+        contorno = b.contorno_sombra(el, t, n_pontos=180)
+        pontos = _pontos_na_terra(contorno)
+        if len(pontos) < 3:
+            continue
+        if not any(_na_janela(lat, lon) for lon, lat in pontos):
+            continue
+
+        sombra = Polygon(pontos)
+        if not sombra.is_valid:
+            sombra = sombra.buffer(0)
+        if not sombra.is_empty and sombra.area > 0:
+            formas.append(sombra)
+            centro = sombra.centroid
+            perfil.append(
+                {
+                    "t": round(float(t), 5),
+                    "lat": round(float(centro.y), 4),
+                    "lon": round(float(centro.x), 4),
+                    "largura_km": None,
+                    "eixo_na_terra": False,
+                }
+            )
+
+    fechar_fita()
+
+    if not formas:
+        return None, perfil
+
+    faixa = unary_union(formas)
+    if not faixa.is_valid:
+        faixa = faixa.buffer(0)
+    return faixa, perfil
+
+
+def _distancia_a_portugal_graus(lat: float, lon: float) -> float:
+    """Distancia aproximada de um ponto as caixas dos tres territorios, em graus.
+
+    Serve so para ordenar pontos por proximidade, nao para medir. Basta encostar
+    o ponto a caixa mais proxima e medir a diferenca.
+    """
+    melhor = float("inf")
+    for lat_min, lat_max, lon_min, lon_max in CAIXAS.values():
+        dlat = max(lat_min - lat, 0.0, lat - lat_max)
+        dlon = max(lon_min - lon, 0.0, lon - lon_max) * np.cos(np.radians(lat))
+        melhor = min(melhor, float(np.hypot(dlat, dlon)))
+    return melhor
+
+
+def _larguras_relevantes(perfil: list[dict]) -> dict:
+    """Reduz o perfil de largura aos numeros que a ficha precisa de mostrar.
+
+    Distingue dois casos que se confundem facilmente. Ou a linha central passa
+    sobre Portugal, e ha uma largura sobre o pais; ou a linha central passa ao
+    largo e so a orla da faixa toca o territorio, como em 2026, em que a
+    totalidade apenas roca o extremo nordeste. Dizer "sem largura" no segundo
+    caso seria enganador.
+    """
+    com_largura = [p for p in perfil if p["largura_km"] is not None]
+    if not com_largura:
+        # Faixa inteiramente sem eixo na Terra: ha sombra, mas nao ha linha
+        # central nem largura definida. E o caso dos eclipses rasantes ao nascer
+        # ou ao por do Sol, que se desenham como area a mesma.
+        return {
+            "largura_maxima_km": None,
+            "largura_sobre_pt_km": None,
+            "linha_central_sobre_pt": False,
+            "largura_junto_a_pt_km": None,
+            "faixa_desenhavel": bool(perfil),
+        }
+
+    sobre_pt = [
+        p for p in com_largura
+        if _distancia_a_portugal_graus(p["lat"], p["lon"]) == 0.0
+    ]
+    mais_perto = min(
+        com_largura, key=lambda p: _distancia_a_portugal_graus(p["lat"], p["lon"])
+    )
+    largura_referencia = (
+        max(p["largura_km"] for p in sobre_pt) if sobre_pt else mais_perto["largura_km"]
+    )
+
+    return {
+        "largura_maxima_km": round(max(p["largura_km"] for p in com_largura), 3),
+        "largura_sobre_pt_km": round(largura_referencia, 3),
+        "linha_central_sobre_pt": bool(sobre_pt),
+        "largura_junto_a_pt_km": round(mais_perto["largura_km"], 3),
+        "faixa_desenhavel": largura_referencia >= LARGURA_MINIMA_POLIGONO_KM,
+    }
+
+
+def isomagnitudes(el: b.Elementos) -> list[dict]:
+    """Contornos de igual magnitude, por territorio.
+
+    Calculam-se sobre a caixa inteira, incluindo mar, para os contornos saírem
+    continuos. Recortar a terra deixaria as curvas a acabar abruptamente na costa.
+    """
+    feicoes = []
+    for territorio, (lat_min, lat_max, lon_min, lon_max) in CAIXAS.items():
+        lats = np.arange(lat_min, lat_max, PASSO_GRELHA_ISOMAGNITUDE)
+        lons = np.arange(lon_min, lon_max, PASSO_GRELHA_ISOMAGNITUDE)
+
+        # Sondagem no centro da caixa para localizar o instante do maximo. Poupa
+        # o varrimento temporal sobre a grelha inteira, que domina o custo.
+        centro_lat = (lat_min + lat_max) / 2
+        centro_lon = (lon_min + lon_max) / 2
+        t_sonda = float(
+            b.instante_maximo_em_pontos(el, np.array([centro_lat]), np.array([centro_lon]))[0]
+        )
+        sonda = b.magnitude_em(el, t_sonda, centro_lat, centro_lon)
+        if float(sonda["separacao"]) - float(sonda["l1_obs"]) > 0.4:
+            continue
+
+        malha_lat, malha_lon = np.meshgrid(lats, lons, indexing="ij")
+        instantes = b.instante_maximo_em_pontos(
+            el, malha_lat, malha_lon, t_inicial=t_sonda
+        )
+        magnitudes = b.magnitude_visivel(el, instantes, malha_lat, malha_lon)
+
+        if magnitudes.max() < NIVEIS_ISOMAGNITUDE[0]:
+            continue
+
+        grelha = {"lat": lats, "lon": lons, "magnitude": magnitudes}
+        gerador = contour_generator(x=lons, y=lats, z=magnitudes)
+        for nivel in NIVEIS_ISOMAGNITUDE:
+            if not (grelha["magnitude"].min() < nivel < grelha["magnitude"].max()):
+                continue
+            for linha in gerador.lines(nivel):
+                if len(linha) < 3:
+                    continue
+                feicoes.append(
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "magnitude": nivel,
+                            "percentagem": round(nivel * 100, 1),
+                            "territorio": territorio,
+                        },
+                        "geometry": mapping(
+                            LineString([(float(x), float(y)) for x, y in linha])
+                        ),
+                    }
+                )
+    return feicoes
+
+
+def gerar(eclipse_id: str) -> dict:
+    pasta = DADOS / eclipse_id
+    dados = json.loads((pasta / "eclipse.json").read_text())
+    el = b.Elementos.de_dict(dados["elementos"], dados["delta_t_s"])
+
+    resumo = {"id": eclipse_id, "ficheiros": []}
+
+    trocos = linha_central_na_janela(el)
+    if trocos:
+        colecao = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"t_inicio": t["t_inicio"], "t_fim": t["t_fim"]},
+                    "geometry": mapping(LineString(t["coordenadas"])),
+                }
+                for t in trocos
+            ],
+        }
+        (pasta / "central.geojson").write_text(
+            json.dumps(colecao, separators=(",", ":"))
+        )
+        resumo["ficheiros"].append("central.geojson")
+
+    faixa, perfil = faixa_na_janela(el, _janela_temporal(el))
+
+    resumo.update(_larguras_relevantes(perfil))
+
+    if faixa is not None and not faixa.is_empty:
+        geometrias = faixa.geoms if isinstance(faixa, MultiPolygon) else [faixa]
+        colecao = {
+            "type": "FeatureCollection",
+            "properties": {
+                "largura_maxima_km": resumo["largura_maxima_km"],
+                "largura_sobre_pt_km": resumo["largura_sobre_pt_km"],
+                "linha_central_sobre_pt": resumo["linha_central_sobre_pt"],
+                # A faixa existe sempre no ficheiro; este campo diz ao frontend se
+                # faz sentido desenha-la como area ou se deve mostrar so a linha.
+                "desenhavel_como_area": resumo["faixa_desenhavel"],
+                "perfil_largura": perfil,
+            },
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": mapping(g.simplify(0.001, preserve_topology=True)),
+                }
+                for g in geometrias
+                if not g.is_empty
+            ],
+        }
+        (pasta / "band.geojson").write_text(json.dumps(colecao, separators=(",", ":")))
+        resumo["ficheiros"].append("band.geojson")
+
+    feicoes = isomagnitudes(el)
+    if feicoes:
+        (pasta / "isomag.geojson").write_text(
+            json.dumps(
+                {"type": "FeatureCollection", "features": feicoes},
+                separators=(",", ":"),
+            )
+        )
+        resumo["ficheiros"].append("isomag.geojson")
+
+    return resumo
+
+
+def main() -> int:
+    indice = json.loads((DADOS / "eclipses-index.json").read_text())
+    pesados = [e for e in indice if e["dados_pesados"]]
+    print(f"{len(pesados)} eclipses acima do limiar, de {len(indice)} no indice")
+
+    sem_poligono = []
+    for numero, entrada in enumerate(pesados, 1):
+        resumo = gerar(entrada["id"])
+        if not resumo["faixa_desenhavel"] and entrada["pt"]["faixa_central"]:
+            sem_poligono.append((entrada["id"], resumo["largura_sobre_pt_km"]))
+        if numero % 25 == 0:
+            print(f"  {numero}/{len(pesados)}")
+
+    if sem_poligono:
+        print("\nfaixas demasiado estreitas para poligono, so linha central:")
+        for eclipse_id, largura in sem_poligono:
+            print(f"  {eclipse_id}: {largura:.2f} km")
+
+    total = sum(
+        f.stat().st_size
+        for f in DADOS.rglob("*.geojson")
+    )
+    print(f"\ntotal de cartografia gerada: {total / 1e6:.1f} MB")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
