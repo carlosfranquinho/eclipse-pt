@@ -1,6 +1,6 @@
 {
   "site.titulo": "Eclipses Solares em Portugal",
-  "site.descricao": "Catálogo dos eclipses solares visíveis em Portugal entre 1500 e 2100, com as circunstâncias locais calculadas a partir dos elementos besselianos do canon da NASA.",
+  "site.descricao": "Catálogo dos eclipses solares visíveis em Portugal entre 1500 e 2500, com as circunstâncias locais calculadas a partir dos elementos besselianos do canon da NASA.",
   "site.saltar_para_conteudo": "Saltar para o conteúdo",
 
   "nav.catalogo": "Catálogo",
@@ -12,13 +12,20 @@
   "rodape.caop": "Limites administrativos: Carta Administrativa Oficial de Portugal (CAOP) 2025, Direção-Geral do Território, CC-BY.",
   "rodape.nota": "Os números são calculados a partir dos elementos besselianos do canon, não copiados de tabelas.",
 
-  "inicio.introducao": "Entre 1500 e 2100 há {total} eclipses solares com fase visível de algum ponto de Portugal. {faixa} têm a faixa de totalidade ou de anularidade a tocar território português.",
+  "inicio.introducao": "Entre {inicio} e {fim} há {total} eclipses solares com fase visível de algum ponto de Portugal. {faixa} têm a faixa de totalidade ou de anularidade a tocar território português.",
+  "inicio.antes": "Antes",
+  "inicio.antes_ajuda": "Os últimos eclipses visíveis de Portugal, do mais recente para trás.",
+  "inicio.antes_vazio": "Não há eclipses passados no catálogo.",
   "inicio.proximos": "A seguir",
   "inicio.proximos_ajuda": "Os próximos eclipses visíveis de Portugal.",
   "inicio.proximos_vazio": "Não há eclipses futuros no catálogo.",
   "inicio.linha_temporal": "Linha temporal",
   "inicio.linha_temporal_ajuda": "Cada marca é um eclipse, colocada no seu ano e colorida pelo tipo. As marcas seguem os filtros.",
   "inicio.catalogo": "Catálogo",
+  "inicio.catalogo_ajuda": "Por século. Abra o que quiser ver; os filtros acima escondem os séculos que ficarem sem nada.",
+  "inicio.seculo": "Século {romano}",
+  "inicio.seculo_um": "1 eclipse",
+  "inicio.seculo_varios": "{total} eclipses",
 
   "filtros.titulo": "Filtros",
   "filtros.tipo": "Tipo",
@@ -139,13 +146,13 @@
   "aspecto.sem_eclipse": "Sem contacto",
 
   "sobre.titulo": "Sobre este site",
-  "sobre.p1": "Este site cataloga todos os eclipses solares com fase visível de território português entre 1500 e 2100, no continente, nos Açores e na Madeira.",
+  "sobre.p1": "Este site cataloga todos os eclipses solares com fase visível de território português entre {inicio} e {fim}, no continente, nos Açores e na Madeira. São mil anos: os primeiros quinhentos já aconteceram, os outros ainda não.",
   "sobre.p2": "Os números não são copiados de tabelas publicadas. Cada eclipse traz os seus elementos besselianos, os cerca de vinte coeficientes com que o Five Millennium Canon of Solar Eclipses descreve a geometria da sombra, e tudo o resto sai deles: a linha central, os limites da faixa, a magnitude em cada ponto, os instantes de contacto e a altura do Sol. Como os coeficientes são os da NASA e o algoritmo é o do Explanatory Supplement to the Astronomical Almanac, o que aqui se lê pode ser comparado directamente com o catálogo original.",
   "sobre.p3": "A hora mostrada depende da época. A partir de 1912 é hora legal, com a base de dados de fusos horários a tratar da hora de verão e do período de 1992 a 1996 em que o continente esteve na hora da Europa Central. Antes de 1912 não havia hora legal em Portugal, e o que se mostra é a hora solar média do meridiano do local, que era como cada terra se regia.",
   "sobre.p4": "As datas anteriores a 15 de outubro de 1582 aparecem no calendário juliano, que era o vigente em Portugal, com a data gregoriana proléptica entre parênteses. A ordenação e os endereços usam sempre a data gregoriana, para haver uma chave estável.",
   "sobre.p5": "Os concelhos atravessados são os concelhos de hoje. Para um eclipse de 1764, a divisão administrativa da época era outra: o que se diz é por onde passou a sombra, descrito na geografia actual.",
   "sobre.p6": "Os eclipses com magnitude máxima em Portugal abaixo do limiar, e sem faixa central em território português, ficam no catálogo com as circunstâncias essenciais mas sem faixa, isomagnitudes nem lista de concelhos.",
-  "sobre.fontes_titulo": "Fontes",
+  "sobre.p7": "Metade do catálogo ainda não aconteceu, e há um número que lhe põe limites: o ΔT, a diferença entre o tempo dos relógios e o tempo da rotação da Terra, que não se sabe prever com exactidão. O canon publica uma extrapolação e é com ela que aqui se calcula. Para as próximas décadas o desvio é de segundos e não muda nada do que se lê. Mais longe cresce, e nos últimos séculos do catálogo pode ser da ordem dos minutos, o que desloca a faixa de totalidade dezenas de quilómetros para leste ou para oeste. O dia continua a ser aquele, a magnitude em terra também; o que fica incerto é a linha exacta por onde a sombra passa.",  "sobre.fontes_titulo": "Fontes",
   "sobre.metodo_titulo": "Método",
   "sobre.limites_titulo": "Limites conhecidos",
 

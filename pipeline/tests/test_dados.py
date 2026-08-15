@@ -43,8 +43,14 @@ def ficha(eclipse_id: str) -> dict:
 
 class TestEstruturaDoIndice:
     def test_dimensao_plausivel(self, indice):
-        """Portugal ve algumas centenas de eclipses em seiscentos anos."""
-        assert 200 < len(indice) < 400
+        """Portugal ve algumas centenas de eclipses em mil anos.
+
+        A conta grosseira: um eclipse solar em cada dois ou tres anos com fase
+        visivel de um ponto qualquer do pais. Os limites sao largos de proposito,
+        para o teste falhar quando o pipeline se enganar na conta e nao quando o
+        catalogo crescer uns quantos.
+        """
+        assert 300 < len(indice) < 800
 
     def test_ordenado_e_sem_repetidos(self, indice):
         datas = [e["data_gregoriana"] for e in indice]

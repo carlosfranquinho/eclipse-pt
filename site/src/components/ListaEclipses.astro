@@ -1,71 +1,181 @@
 ---
+/** O catalogo, repartido por seculos.
+ *
+ * Mil anos dao perto de meio milhar de eclipses, e uma lista corrida dessas nao
+ * se le. Cada seculo e um `details`, que abre e fecha sozinho sem JavaScript
+ * nenhum; abre por omissao o seculo em que estamos, que e por onde quase toda a
+ * gente quer comecar.
+ *
+ * Os filtros mexem nestes blocos: escondem os seculos que ficam sem nada e
+ * abrem os que tem alguma coisa, para ninguem filtrar e ficar a olhar para uma
+ * lista de titulos fechados. Ver o script em Filtros.astro.
+ */
 import EtiquetaTipo from "./EtiquetaTipo.astro";
 import { t } from "../i18n";
 import {
   NOMES_TERRITORIO,
+  anoDe,
   dataPorExtenso,
   dataVigente,
   magnitude,
 } from "../lib/formatacao";
 import type { EntradaIndice } from "../lib/tipos";
 import { urlEclipse } from "../lib/urls";
-import { atributosFiltro } from "../lib/filtros";
+import { atributosFiltro, porSeculo } from "../lib/filtros";
 
 interface Props {
   eclipses: EntradaIndice[];
 }
 
 const { eclipses } = Astro.props;
+const grupos = porSeculo(eclipses);
+
+// Os extremos do catalogo, para o primeiro e o ultimo seculo nao prometerem
+// anos que nao estao ca dentro: o catalogo acaba em 2500, e o seculo XXVI so
+// entra com esse ano.
+const primeiroAno = anoDe(eclipses[0]!.data_gregoriana);
+const ultimoAno = anoDe(eclipses[eclipses.length - 1]!.data_gregoriana);
+
+function anosDoGrupo(inicio: number, fim: number): string {
+  const de = Math.max(inicio, primeiroAno);
+  const ate = Math.min(fim, ultimoAno);
+  return de === ate ? String(de) : `${de} a ${ate}`;
+}
+
+// O seculo da data da build. E so a escolha do que abre primeiro, por isso nao
+// faz mal nenhum que a data do leitor seja outra.
+const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
 ---
 
-<div class="tabela-envolvente">
-  <table id="lista-eclipses">
-    <caption class="discreto">{t("inicio.catalogo")}</caption>
-    <thead>
-      <tr>
-        <th scope="col">{t("lista.data")}</th>
-        <th scope="col">{t("lista.tipo")}</th>
-        <th scope="col" class="numero">{t("lista.magnitude")}</th>
-        <th scope="col">{t("lista.territorios")}</th>
-        <th scope="col">{t("lista.faixa_central")}</th>
-        <th scope="col" class="numero">{t("lista.saros")}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {
-        eclipses.map((eclipse) => {
-          const { principal, alternativa } = dataVigente(eclipse);
-          return (
-            <tr {...atributosFiltro(eclipse)}>
-              <th scope="row">
-                <a href={urlEclipse(eclipse.id)}>{dataPorExtenso(principal)}</a>
-                {alternativa && (
-                  <span class="discreto"> ({dataPorExtenso(alternativa)})</span>
-                )}
-              </th>
-              <td>
-                <EtiquetaTipo tipo={eclipse.tipo} />
-              </td>
-              <td class="numero">{magnitude(eclipse.pt.magnitude_max)}</td>
-              <td>
-                {eclipse.pt.territorios_visiveis
-                  .map((territorio) => NOMES_TERRITORIO[territorio])
-                  .join(", ")}
-              </td>
-              <td>{eclipse.pt.faixa_central ? t("lista.sim") : ""}</td>
-              <td class="numero">{eclipse.saros}</td>
-            </tr>
-          );
-        })
-      }
-    </tbody>
-  </table>
+<div
+  class="catalogo"
+  data-contagem-um={t("inicio.seculo_um")}
+  data-contagem-varios={t("inicio.seculo_varios")}
+>
+  {
+    grupos.map((grupo) => (
+      <details
+        class="seculo"
+        data-grupo={grupo.inicio}
+        open={grupo.inicio === seculoActual}
+      >
+        <summary>
+          <span class="nome">
+            {t("inicio.seculo", { romano: grupo.romano })}
+          </span>
+          <span class="anos discreto">{anosDoGrupo(grupo.inicio, grupo.fim)}</span>
+          <span class="contagem discreto" data-contagem-grupo>
+            {grupo.eclipses.length === 1
+              ? t("inicio.seculo_um")
+              : t("inicio.seculo_varios", { total: grupo.eclipses.length })}
+          </span>
+        </summary>
+
+        <div class="tabela-envolvente">
+          <table>
+            <caption class="so-para-leitores">
+              {t("inicio.seculo", { romano: grupo.romano })}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">{t("lista.data")}</th>
+                <th scope="col">{t("lista.tipo")}</th>
+                <th scope="col" class="numero">
+                  {t("lista.magnitude")}
+                </th>
+                <th scope="col">{t("lista.territorios")}</th>
+                <th scope="col">{t("lista.faixa_central")}</th>
+                <th scope="col" class="numero">
+                  {t("lista.saros")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {grupo.eclipses.map((eclipse) => {
+                const { principal, alternativa } = dataVigente(eclipse);
+                return (
+                  <tr {...atributosFiltro(eclipse)}>
+                    <th scope="row">
+                      <a href={urlEclipse(eclipse.id)}>
+                        {dataPorExtenso(principal)}
+                      </a>
+                      {alternativa && (
+                        <span class="discreto">
+                          {" "}
+                          ({dataPorExtenso(alternativa)})
+                        </span>
+                      )}
+                    </th>
+                    <td>
+                      <EtiquetaTipo tipo={eclipse.tipo} />
+                    </td>
+                    <td class="numero">{magnitude(eclipse.pt.magnitude_max)}</td>
+                    <td>
+                      {eclipse.pt.territorios_visiveis
+                        .map((territorio) => NOMES_TERRITORIO[territorio])
+                        .join(", ")}
+                    </td>
+                    <td>{eclipse.pt.faixa_central ? t("lista.sim") : ""}</td>
+                    <td class="numero">{eclipse.saros}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    ))
+  }
 </div>
 
 <style>
-  table caption {
-    text-align: left;
-    padding-bottom: 0.5rem;
+  .catalogo {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .seculo {
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+    background: var(--fundo-caixa);
+  }
+
+  .seculo[hidden] {
+    display: none;
+  }
+
+  summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem 0.8rem;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    border-radius: var(--raio);
+  }
+
+  summary:hover {
+    background: var(--fundo-suave);
+  }
+
+  .seculo[open] > summary {
+    border-bottom: 1px solid var(--linha);
+    border-radius: var(--raio) var(--raio) 0 0;
+  }
+
+  .nome {
+    font-family: var(--tipografia);
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .contagem {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabela-envolvente {
+    padding: 0 0.25rem 0.25rem;
   }
 
   th[scope="row"] {

@@ -2,15 +2,20 @@
 import Base from "../layouts/Base.astro";
 import { t } from "../i18n";
 import { indice } from "../lib/dados";
+import { anoDe } from "../lib/formatacao";
 
 const eclipses = indice();
 const pesados = eclipses.filter((e) => e.dados_pesados).length;
+const intervalo = {
+  inicio: anoDe(eclipses[0]!.data_gregoriana),
+  fim: anoDe(eclipses[eclipses.length - 1]!.data_gregoriana),
+};
 ---
 
 <Base titulo={t("sobre.titulo")} seccao="sobre">
   <article class="texto">
     <h1>{t("sobre.titulo")}</h1>
-    <p>{t("sobre.p1")}</p>
+    <p>{t("sobre.p1", intervalo)}</p>
 
     <h2>{t("sobre.metodo_titulo")}</h2>
     <p>{t("sobre.p2")}</p>
@@ -19,6 +24,7 @@ const pesados = eclipses.filter((e) => e.dados_pesados).length;
 
     <h2>{t("sobre.limites_titulo")}</h2>
     <p>{t("sobre.p5")}</p>
+    <p>{t("sobre.p7")}</p>
     <p>
       {t("sobre.p6")}
       <span class="discreto">

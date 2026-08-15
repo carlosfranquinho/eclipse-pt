@@ -85,10 +85,10 @@ def _piores(entradas: list[tuple[str, float]], quantos: int = 5) -> str:
 
 class TestCobertura:
     def test_intervalo_completo(self, canon):
-        assert len(canon) > 1400, "o cache do canon parece truncado"
+        assert len(canon) > 2300, "o cache do canon parece truncado"
         anos = [e["ano"] for e in canon]
         assert min(anos) == 1500
-        assert max(anos) == 2100
+        assert max(anos) == 2500
 
     def test_todos_os_tipos_representados(self, canon):
         tipos = {e["tipo"] for e in canon}
@@ -119,14 +119,29 @@ class TestEclipseMaior:
         assert np.median(valores) < 1e-4
         assert np.percentile(valores, 99) < 0.002, f"piores: {_piores(desvios['mag'])}"
 
-    def test_magnitude_sem_excepcoes_alem_das_rasantes(self, desvios):
+    def test_magnitude_sem_excepcoes_alem_das_rasantes(self, desvios, por_data):
         """Os unicos desvios grandes admitidos sao eclipses de |gamma| perto de 1.
 
         Nesses, o ponto de eclipse maior cai sobre o terminador e a definicao de
-        magnitude do canon muda de regime. Sao poucos e estao identificados.
+        magnitude do canon muda de regime: publica a razao dos diametros onde
+        aqui se calcula a fraccao coberta. Nao e um erro de calculo, e uma
+        diferenca de definicao, e so acontece nos rasantes.
+
+        O que se exige e a natureza das excepcoes, nao o numero: contar seria
+        obrigar a mexer no teste sempre que o catalogo crescesse, e deixaria de
+        se perceber o que ele defende.
         """
         fora = [(d, v) for d, v in desvios["mag"] if v > 0.005]
-        assert len(fora) <= 5, f"demasiadas excepcoes: {_piores(desvios['mag'], 10)}"
+        nao_rasantes = [
+            (d, v, por_data[d]["gamma"])
+            for d, v in fora
+            if abs(por_data[d]["gamma"]) <= 0.985
+        ]
+        assert not nao_rasantes, f"desvios em eclipses que nao sao rasantes: {nao_rasantes}"
+        assert len(fora) < 0.01 * len(desvios["mag"]), (
+            f"excepcoes a mais: {len(fora)} em {len(desvios['mag'])},"
+            f" as piores {_piores(desvios['mag'], 10)}"
+        )
 
     def test_largura_da_faixa(self, desvios):
         valores = np.array([v for _, v in desvios["largura"]])

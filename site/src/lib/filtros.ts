@@ -22,12 +22,74 @@ export function atributosFiltro(eclipse: EntradaIndice): Record<string, string> 
 }
 
 /** Os intervalos de cem anos cobertos pelo catalogo, do mais antigo ao mais
- * recente. Rotulados pelo intervalo e nao pelo numero do seculo, que so
- * confundiria: 1500 e seculo XV pela contagem estrita e "os anos 1500" na
+ * recente. No filtro sao rotulados pelo intervalo de anos, que e o que nao
+ * deixa duvidas: 1500 e seculo XV pela contagem estrita e "os anos 1500" na
  * linguagem corrente. */
 export function periodos(eclipses: EntradaIndice[]): number[] {
   const conjunto = new Set(
     eclipses.map((e) => Math.floor(anoDe(e.data_gregoriana) / 100) * 100),
   );
   return [...conjunto].sort((a, b) => a - b);
+}
+
+export interface GrupoSeculo {
+  /** Primeiro ano do intervalo: 1500, 1600, ... */
+  inicio: number;
+  fim: number;
+  /** Numero do seculo em algarismos romanos. Os anos 1500 sao o seculo XVI. */
+  romano: string;
+  eclipses: EntradaIndice[];
+}
+
+/** O catalogo repartido por seculos, do mais antigo ao mais recente.
+ *
+ * Mil anos numa lista unica sao ilegiveis. Por seculo, cada bloco tem algumas
+ * dezenas de eclipses e o leitor escolhe onde entra. O rotulo traz o numero do
+ * seculo e o intervalo de anos ao lado, para as duas contagens conviverem sem
+ * mal-entendidos. */
+export function porSeculo(eclipses: EntradaIndice[]): GrupoSeculo[] {
+  const grupos = new Map<number, EntradaIndice[]>();
+  for (const eclipse of eclipses) {
+    const inicio = Math.floor(anoDe(eclipse.data_gregoriana) / 100) * 100;
+    const lista = grupos.get(inicio);
+    if (lista) lista.push(eclipse);
+    else grupos.set(inicio, [eclipse]);
+  }
+
+  return [...grupos.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([inicio, lista]) => ({
+      inicio,
+      fim: inicio + 99,
+      romano: numeroRomano(inicio / 100 + 1),
+      eclipses: lista,
+    }));
+}
+
+const ROMANOS: [number, string][] = [
+  [1000, "M"],
+  [900, "CM"],
+  [500, "D"],
+  [400, "CD"],
+  [100, "C"],
+  [90, "XC"],
+  [50, "L"],
+  [40, "XL"],
+  [10, "X"],
+  [9, "IX"],
+  [5, "V"],
+  [4, "IV"],
+  [1, "I"],
+];
+
+export function numeroRomano(valor: number): string {
+  let resto = valor;
+  let saida = "";
+  for (const [numero, simbolo] of ROMANOS) {
+    while (resto >= numero) {
+      saida += simbolo;
+      resto -= numero;
+    }
+  }
+  return saida;
 }

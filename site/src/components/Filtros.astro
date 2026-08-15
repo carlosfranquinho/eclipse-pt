@@ -125,6 +125,40 @@ const intervalos = periodos(eclipses);
     );
     const total = new Set(elementos.map((el) => el.dataset.eclipse)).size;
     const modelo = contagem.dataset.modelo ?? "{visiveis}/{total}";
+
+    // Os seculos do catalogo. Cada um sabe dizer quantos eclipses lhe restam,
+    // fecha-se quando fica vazio, e abre-se quando ha filtro e ele tem alguma
+    // coisa: filtrar e ficar a olhar para titulos fechados nao serviria de nada.
+    const catalogo = document.querySelector<HTMLElement>(".catalogo");
+    const seculos = Array.from(
+      document.querySelectorAll<HTMLDetailsElement>("details[data-grupo]"),
+    );
+    const abertosDeInicio = new Set(
+      seculos.filter((seculo) => seculo.open).map((seculo) => seculo.dataset.grupo),
+    );
+    const contarUm = catalogo?.dataset.contagemUm ?? "1";
+    const contarVarios = catalogo?.dataset.contagemVarios ?? "{total}";
+
+    function arrumarSeculos(comFiltro: boolean) {
+      for (const seculo of seculos) {
+        const restantes = seculo.querySelectorAll(
+          "tbody [data-eclipse]:not([hidden])",
+        ).length;
+
+        const contador = seculo.querySelector("[data-contagem-grupo]");
+        if (contador) {
+          contador.textContent =
+            restantes === 1
+              ? contarUm
+              : contarVarios.replace("{total}", String(restantes));
+        }
+
+        seculo.hidden = restantes === 0;
+        seculo.open = comFiltro
+          ? restantes > 0
+          : abertosDeInicio.has(seculo.dataset.grupo);
+      }
+    }
     const saidaMagnitude = document.getElementById(
       "valor-magnitude",
     ) as HTMLOutputElement | null;
@@ -170,6 +204,8 @@ const intervalos = periodos(eclipses);
         elemento.hidden = !passa;
         if (passa && d.eclipse) visiveis.add(d.eclipse);
       }
+
+      arrumarSeculos(visiveis.size < total);
 
       contagem!.textContent = modelo
         .replace("{visiveis}", String(visiveis.size))

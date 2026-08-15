@@ -34,7 +34,8 @@ ATRIBUICAO = "Eclipse Predictions by Fred Espenak, NASA's GSFC"
 CATALOGO_URL = "https://eclipse.gsfc.nasa.gov/SEcat5/SE{inicio}-{fim}.html"
 CATALOGO_SECULOS = [
     (1401, 1500), (1501, 1600), (1601, 1700), (1701, 1800),
-    (1801, 1900), (1901, 2000), (2001, 2100),
+    (1801, 1900), (1901, 2000), (2001, 2100), (2101, 2200),
+    (2201, 2300), (2301, 2400), (2401, 2500),
 ]
 
 MESES = {
@@ -48,9 +49,14 @@ LINHA_CATALOGO = re.compile(
     r"\d{2}:\d{2}:\d{2}\s+(-?\d+)\s+(-?\d+)\s+(\d+)\s+"
 )
 
-# Intervalo do projeto, em anos gregorianos prolepticos.
+# Intervalo do projeto, em anos gregorianos prolepticos: mil anos.
+#
+# A metade futura vale o que valer o DeltaT com que foi calculada. Ate ao fim do
+# seculo XXI a extrapolacao e boa; a partir dai o erro cresce depressa e desloca
+# a faixa em dezenas de quilometros, ainda que nao mude o dia nem a magnitude em
+# terra. O canon e a fonte, e o que ele publica e o que aqui se guarda.
 ANO_INICIO = 1500
-ANO_FIM = 2100
+ANO_FIM = 2500
 
 # O canon usa uma letra por tipo de eclipse.
 TIPOS = {"T": "total", "A": "anular", "H": "hibrido", "P": "parcial"}

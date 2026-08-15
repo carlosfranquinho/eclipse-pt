@@ -289,6 +289,19 @@ th.numero {
   grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
 }
 
+/* Visivel para um leitor de ecra, invisivel para os outros. */
+.so-para-leitores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .discreto {
   color: var(--texto-suave);
   font-size: 0.9rem;

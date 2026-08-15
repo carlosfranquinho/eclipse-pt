@@ -7,7 +7,7 @@ fundo, por onde passou a faixa e o que apanharam as ilhas.
 
 Duas decisoes que explicam a forma do modulo:
 
-O tempo verbal. O catalogo vai de 1500 a 2100, e metade dele ainda nao aconteceu.
+O tempo verbal. O catalogo vai de 1500 a 2500, e metade dele ainda nao aconteceu.
 Um texto so, escrito no passado, envelheceria ao contrario. Gera-se por isso o
 mesmo paragrafo nos dois tempos, e a ficha escolhe o que serve a data da build.
 

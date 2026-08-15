@@ -17,14 +17,26 @@ interface Props {
   fim?: number;
 }
 
-const { eclipses, inicio = 1500, fim = 2100 } = Astro.props;
+// Os limites saem do proprio catalogo, arredondados ao seculo. Assim a linha
+// acompanha o intervalo dos dados sem ninguem ter de lhe tocar quando ele muda.
+const anos = Astro.props.eclipses.map((e) => partesData(e.data_gregoriana)[0]);
+const {
+  eclipses,
+  inicio = Math.floor(Math.min(...anos) / 100) * 100,
+  fim = Math.ceil(Math.max(...anos) / 100) * 100,
+} = Astro.props;
 const amplitude = fim - inicio;
 
-/** Posicao horizontal em percentagem, ao dia. */
+/** Posicao horizontal em percentagem, ao dia.
+ *
+ * O limite superior e o proprio ano do ultimo eclipse, e por isso um eclipse de
+ * junho desse ano cairia uns decimos alem dos cem por cento e sairia da pista.
+ * Trava-se aqui, em vez de alargar a escala um seculo inteiro so para o acomodar
+ * e deixar o fim da linha vazio, como se faltassem dados. */
 function posicao(iso: string): number {
   const [ano, mes, dia] = partesData(iso);
   const fraccao = (mes - 1) / 12 + (dia - 1) / 365;
-  return ((ano + fraccao - inicio) / amplitude) * 100;
+  return Math.min(99.8, ((ano + fraccao - inicio) / amplitude) * 100);
 }
 
 const marcas = eclipses.map((eclipse) => {
@@ -41,8 +53,11 @@ const marcas = eclipses.map((eclipse) => {
   };
 });
 
+// Meio seculo entre marcas chega para seiscentos anos; para mil, so os seculos
+// cabem sem os rotulos se atropelarem.
+const passoDaEscala = amplitude > 700 ? 100 : 50;
 const escalas: number[] = [];
-for (let ano = inicio; ano <= fim; ano += 50) escalas.push(ano);
+for (let ano = inicio; ano <= fim; ano += passoDaEscala) escalas.push(ano);
 ---
 
 <figure class="linha-temporal">

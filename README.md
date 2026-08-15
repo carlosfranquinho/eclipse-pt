@@ -1,8 +1,9 @@
 # Eclipses Solares em Portugal
 
-Site estático que cataloga os eclipses solares visíveis em Portugal entre 1500 e 2100,
+Site estático que cataloga os eclipses solares visíveis em Portugal entre 1500 e 2500,
 com uma ficha por eclipse, mapas dinâmicos e cálculo das circunstâncias locais em
-qualquer ponto do território.
+qualquer ponto do território. São mil anos e 472 eclipses, metade deles ainda por
+acontecer.
 
 O plano de trabalho está em [`plano.md`](plano.md). O documento original que lhe deu
 origem está em [`plano-inicial.md`](plano-inicial.md), mantido para registo.

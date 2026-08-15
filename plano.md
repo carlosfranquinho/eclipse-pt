@@ -456,3 +456,28 @@ Verificações manuais na `preview`, antes de publicar:
 | CAOP muda de formato ou de URL | Cópia dos GeoJSON derivados commitada no repositório, com o script de conversão à parte |
 | Caminhos do GitHub Pages num subdiretório | `base` configurado no Astro desde M3 e verificado na `preview`, não só em `dev` |
 
+---
+
+## 12. Alterações depois da aprovação
+
+Registo do que mudou em relação ao plano acima, por decisão tomada durante a
+execução. O resto do documento fica como estava, que é o seu valor: o que se
+combinou antes de começar.
+
+**Intervalo alargado para 1500-2500.** Eram seiscentos anos, passam a mil. O canon
+da NASA cobre até 3000, por isso não houve nada a inventar: `ingest_canon.py`
+passou a descarregar também as páginas do catálogo de 2101 a 2500 e o filtro
+mudou de ano. O catálogo passou de 277 para 472 eclipses.
+
+A metade futura vale o que valer o ΔT com que foi calculada. O canon publica uma
+extrapolação, e é com ela que se calcula; até ao fim do século XXI o desvio não
+muda nada do que se lê, mas nos últimos séculos pode ser da ordem dos minutos, o
+que desloca a faixa dezenas de quilómetros. O dia e a magnitude em terra
+mantêm-se. A página *Sobre* explica-o ao leitor.
+
+**Página inicial reorganizada.** Três secções passaram a quatro: "Antes" com os
+três últimos eclipses, "A seguir" com os três próximos, os filtros, e só depois a
+linha temporal, que eles filtram. O catálogo deixou de ser uma tabela corrida e
+passou a um acordeão por século, com o século actual aberto por omissão: mil anos
+numa lista única não se leem. Os filtros escondem os séculos que ficam vazios e
+abrem os que têm alguma coisa.
