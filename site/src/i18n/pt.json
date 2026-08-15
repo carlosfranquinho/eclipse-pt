@@ -11,6 +11,7 @@
   "rodape.nasa": "Eclipse Predictions by Fred Espenak, NASA's GSFC, do Five Millennium Canon of Solar Eclipses.",
   "rodape.caop": "Limites administrativos: Carta Administrativa Oficial de Portugal (CAOP) 2025, Direção-Geral do Território, CC-BY.",
   "rodape.nota": "Os números são calculados a partir dos elementos besselianos do canon, não copiados de tabelas.",
+  "rodape.autoria": "© {ano} Carlos Franquinho. O código e os textos são da sua autoria; os dados são das fontes acima, nos termos de cada uma.",
 
   "inicio.introducao": "Entre {inicio} e {fim} há {total} eclipses solares com fase visível de algum ponto de Portugal. {faixa} têm a faixa de totalidade ou de anularidade a tocar território português.",
   "inicio.antes": "Antes",

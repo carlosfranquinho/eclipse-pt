@@ -11,6 +11,10 @@ interface Props {
 }
 
 const { titulo, descricao = t("site.descricao"), seccao } = Astro.props;
+
+// O ano da build. O site reconstroi-se a cada alteracao, por isso acompanha o
+// calendario sem ninguem lhe tocar.
+const ano = new Date().getFullYear();
 const tituloCompleto =
   titulo === t("site.titulo") ? titulo : `${titulo} | ${t("site.titulo")}`;
 
@@ -112,6 +116,7 @@ const politicaDeSeguranca = [
         <p>{t("rodape.nasa")}</p>
         <p>{t("rodape.caop")}</p>
         <p>{t("rodape.nota")}</p>
+        <p class="autoria">{t("rodape.autoria", { ano })}</p>
       </div>
     </footer>
   </body>

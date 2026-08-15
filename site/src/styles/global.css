@@ -168,6 +168,14 @@ a:hover {
   margin: 0.35rem 0;
 }
 
+/* Discreta mas presente: separada das fontes por um traco, e nem por isso mais
+   apagada do que o resto do rodape. */
+.rodape .autoria {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--linha);
+}
+
 main {
   padding-block: 2rem;
 }
