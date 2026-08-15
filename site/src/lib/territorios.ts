@@ -34,12 +34,14 @@ export const CAIXA_DE_PORTUGAL: [number, number, number, number] = (() => {
   ];
 })();
 
-/** Ate onde o mapa deixa arrastar e afastar: exactamente a caixa do pais.
+/** Ate onde o centro do mapa pode ir. E a propria caixa do pais.
  *
- * Sem folga nenhuma, de proposito. Com folga, a vista inicial ficava com espaco
- * de sobra para leste e para oeste e dava para arrastar o pais de lado, o que
- * nao serve para nada e so faz perder o enquadramento. */
-export const LIMITES_DO_MAPA: [number, number, number, number] =
+ * Limita-se o centro e nao a area visivel, e a diferenca importa: uma restricao
+ * a area obrigaria o mapa a aproximar-se ate caber toda dentro dela, e a vista
+ * inicial passava a cortar o continente. Limitado o centro, o enquadramento
+ * inicial fica como deve e mesmo assim nunca se consegue empurrar o pais para
+ * fora do ecra. */
+export const LIMITES_DO_CENTRO: [number, number, number, number] =
   CAIXA_DE_PORTUGAL;
 
 /** A que territorio pertence um ponto, para efeitos de hora legal.

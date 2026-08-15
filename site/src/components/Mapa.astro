@@ -14,7 +14,7 @@ import {
 import {
   CAIXAS,
   CAIXA_DE_PORTUGAL,
-  LIMITES_DO_MAPA,
+  LIMITES_DO_CENTRO,
   TERRITORIOS,
 } from "../lib/territorios";
 import { OPACIDADE_FAIXA, opacidadeDaZona } from "../lib/isomagnitudes";
@@ -166,7 +166,7 @@ const configuracao = {
   desenhavelComoArea,
   enquadramentos,
   inicial: CAIXA_DE_PORTUGAL,
-  limites: LIMITES_DO_MAPA,
+  limites: LIMITES_DO_CENTRO,
   concelhos: baloesConcelhos(),
   pontos: pontos(),
   atribuicao: {
@@ -576,7 +576,6 @@ const camadas = [
       style: { version: 8, sources: fontes, layers: camadas },
       bounds: config.inicial as LngLatBoundsLike,
       fitBoundsOptions: { padding: 24 },
-      maxBounds: config.limites as LngLatBoundsLike,
       attributionControl: { compact: true },
     });
 
@@ -591,6 +590,7 @@ const camadas = [
       // mao, porque depende do tamanho que a caixa tiver no ecra.
       mapa.setMinZoom(mapa.getZoom());
       travarArrastoNoEnquadramento(mapa);
+      prenderOCentro(mapa, config.limites);
       ligarControlos(mapa, config);
       ligarBaloes(mapa, config, ["pontos"]);
       ligarPontoAoVivo(mapa, config);
@@ -600,14 +600,33 @@ const camadas = [
     escuro.addEventListener("change", () => aplicarPaleta(mapa, config));
   }
 
+  /** O centro do mapa nao sai da caixa do pais.
+   *
+   * E aqui e nao no `maxBounds` do MapLibre, que restringe a area visivel e por
+   * isso obriga o mapa a aproximar-se ate ela caber toda dentro dos limites: a
+   * vista inicial passava a cortar o continente. Prendendo so o centro, o
+   * enquadramento fica como deve e continua a nao haver maneira de empurrar o
+   * pais para fora do ecra. */
+  function prenderOCentro(mapa: Mapa, limites: number[]) {
+    const [oeste, sul, este, norte] = limites as [number, number, number, number];
+    mapa.on("move", () => {
+      const centro = mapa.getCenter();
+      const lon = Math.min(este, Math.max(oeste, centro.lng));
+      const lat = Math.min(norte, Math.max(sul, centro.lat));
+      // A propria correccao dispara outro `move`, mas ai ja esta dentro dos
+      // limites e nao volta a mexer.
+      if (lon !== centro.lng || lat !== centro.lat) mapa.setCenter([lon, lat]);
+    });
+  }
+
   /** No enquadramento inicial nao ha para onde arrastar, e por isso nao se
    * arrasta.
    *
-   * Os limites do mapa sozinhos nao chegam: quando a caixa do pais nao tem
-   * exactamente a forma da janela, sobra folga num dos eixos e o mapa deixa-se
-   * levar de lado uns graus, o que so faz perder o enquadramento. Ao afastamento
-   * minimo o arrasto desliga-se; a partir do primeiro passo de aproximacao volta
-   * a ligar-se, ai ja com os limites a fazer o seu papel. */
+   * Prender o centro nao chega para isto: no enquadramento inicial ainda sobra
+   * folga num dos eixos, e o mapa deixava-se levar de lado uns graus, o que so
+   * faz perder o enquadramento. Ao afastamento minimo o arrasto desliga-se; a
+   * partir do primeiro passo de aproximacao volta a ligar-se, ai ja com o centro
+   * preso a fazer o seu papel. */
   function travarArrastoNoEnquadramento(mapa: Mapa) {
     const decidir = () => {
       const noChao = mapa.getZoom() <= mapa.getMinZoom() + 0.01;
