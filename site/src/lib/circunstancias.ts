@@ -15,7 +15,7 @@ import {
   elementosDe,
   magnitudeEm,
   type Circunstancias,
-} from "./besselian";
+} from "./besselian.ts";
 import {
   desvioUtc,
   horaLocal,
@@ -23,8 +23,8 @@ import {
   isoHora,
   jdParaCivil,
   jdUtDeT,
-} from "./tempo";
-import { territorioDe } from "./territorios";
+} from "./tempo.ts";
+import { territorioDe } from "./territorios.ts";
 import {
   NOMES_TIPO_LOCAL,
   coordenadas,
@@ -33,8 +33,8 @@ import {
   magnitude as formatarMagnitude,
   percentagem,
   rotuloSistemaHora,
-} from "./formatacao";
-import { t, type Chave } from "../i18n";
+} from "./formatacao.ts";
+import { t, type Chave } from "../i18n/index.ts";
 import type { Eclipse, Territorio } from "./tipos";
 
 /** So o que o calculo precisa da ficha do eclipse. */

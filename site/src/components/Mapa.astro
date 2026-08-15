@@ -695,7 +695,15 @@ const camadas = [
     }
 
     function mostrar(lat: number, lon: number, nome?: string) {
-      desenhar(calcularPonto(config.eclipse, lat, lon, nome));
+      const ponto = calcularPonto(config.eclipse, lat, lon, nome);
+      desenhar(ponto);
+      // A simulacao do Sol vive noutro componente e nao conhece o mapa. Partilham
+      // so o nome deste evento, e quem o ouvir desenha o que quiser.
+      document.dispatchEvent(
+        new CustomEvent("eclipse:ponto", {
+          detail: { lat, lon, nome: ponto.titulo },
+        }),
+      );
     }
 
     function fixar(lat: number, lon: number, nome?: string) {

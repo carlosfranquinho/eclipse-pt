@@ -95,6 +95,10 @@ export interface Eclipse extends EntradaIndice {
   maximo_global_ut: string;
   territorios: Record<Territorio, CircunstanciasTerritorio>;
   elementos: ElementosBesselianos;
+  /** Paragrafo de abertura, escrito pelo pipeline a partir destes numeros. Vem
+   * nos dois tempos verbais porque metade do catalogo ainda nao aconteceu, e a
+   * ficha escolhe o que serve a data da build. */
+  texto_gerado?: { passado: string; futuro: string };
 }
 
 export interface ConcelhoAtravessado {

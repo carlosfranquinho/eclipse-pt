@@ -196,6 +196,16 @@ function obscuracaoDiscos(
 export interface Magnitude {
   magnitude: number;
   obscuracao: number;
+  /** Posicao do eixo da sombra em relacao ao observador, no plano fundamental:
+   * `u` para leste, `v` para norte. Divididos pelo raio solar dao o afastamento
+   * aparente entre os centros do Sol e da Lua, que e o que a simulacao desenha. */
+  u: number;
+  v: number;
+  /** Angulo horario e declinacao do eixo da sombra, em graus. Com a exactidao
+   * que aqui interessa sao os do proprio Sol, e e deles que sai a orientacao do
+   * disco solar em relacao ao zenite. */
+  angulo_horario: number;
+  declinacao: number;
   alt_sol: number;
   az_sol: number;
   sol_visivel: boolean;
@@ -259,6 +269,10 @@ export function magnitudeEm(
       ? Math.max((l1Obs - m) / (l1Obs + l2Obs), 0.0)
       : 0.0,
     obscuracao: dentroDaPenumbra ? obscuracaoDiscos(raioSol, raioLua, m) : 0.0,
+    u,
+    v,
+    angulo_horario: modulo(h / GRAU + 180.0, 360.0) - 180.0,
+    declinacao: s.d / GRAU,
     alt_sol: alt / GRAU,
     az_sol: modulo(az / GRAU, 360.0),
     sol_visivel: solVisivel,

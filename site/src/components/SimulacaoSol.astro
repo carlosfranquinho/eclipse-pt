@@ -1,0 +1,431 @@
+---
+/** O disco solar como se via do ponto escolhido, ao longo do eclipse.
+ *
+ * O desenho sai do mesmo nucleo besseliano que tudo o resto: a posicao da Lua
+ * sobre o Sol e o vector `(u, v)` do plano fundamental, rodado para ficar com o
+ * zenite para cima. Ver `src/lib/aspecto.ts`.
+ *
+ * O primeiro desenho e feito na build, para o instante do maximo no local mais
+ * fundo, e por isso a seccao continua a dizer alguma coisa com o JavaScript
+ * desligado. Com JavaScript, o cursor de tempo percorre o eclipse do primeiro ao
+ * quarto contacto e o desenho segue o ponto que estiver escolhido no mapa.
+ */
+import { t } from "../i18n";
+import { aspectoEm } from "../lib/aspecto";
+import { circunstanciasNoPonto, elementosDe } from "../lib/besselian";
+import {
+  NOMES_TIPO_LOCAL,
+  graus,
+  magnitude as formatarMagnitude,
+  percentagem,
+} from "../lib/formatacao";
+import { horaLocal, jdUtDeT } from "../lib/tempo";
+import { TERRITORIOS, territorioDe } from "../lib/territorios";
+import type { Eclipse } from "../lib/tipos";
+
+interface Props {
+  eclipse: Eclipse;
+}
+
+const { eclipse } = Astro.props;
+
+// O ponto de partida e o local mais fundo, com o continente a frente quando ha
+// alguma coisa para ver la. E o mesmo criterio com que o mapa se enquadra.
+const territorio =
+  TERRITORIOS.find((nome) => eclipse.territorios[nome]?.visivel) ?? null;
+const dados = territorio ? eclipse.territorios[territorio] : null;
+const partida =
+  dados && dados.visivel
+    ? {
+        lat: dados.local_mais_fundo.lat,
+        lon: dados.local_mais_fundo.lon,
+        nome: dados.local_mais_fundo.nome,
+      }
+    : null;
+
+const elementos = elementosDe(eclipse);
+const circunstancias = partida
+  ? circunstanciasNoPonto(elementos, partida.lat, partida.lon)
+  : null;
+const aspecto =
+  partida && circunstancias
+    ? aspectoEm(elementos, circunstancias.t_maximo_td, partida.lat, partida.lon)
+    : null;
+
+const hora =
+  partida && circunstancias
+    ? horaLocal(
+        jdUtDeT(eclipse, circunstancias.t_maximo_td),
+        partida.lon,
+        territorioDe(partida.lat, partida.lon),
+      ).hora
+    : null;
+
+const configuracao = {
+  eclipse: {
+    elementos: eclipse.elementos,
+    delta_t_s: eclipse.delta_t_s,
+    jd_t0_td: eclipse.jd_t0_td,
+  },
+  partida,
+  textos: {
+    zenite: t("aspecto.zenite"),
+    norte: t("aspecto.norte"),
+    semEclipse: t("aspecto.sem_eclipse"),
+  },
+};
+
+/** Ponto na moldura do desenho, a `raio` raios solares do centro, num angulo
+ * medido a partir do zenite e no sentido do leste. */
+function marca(anguloGraus: number, raio: number) {
+  const angulo = (anguloGraus * Math.PI) / 180;
+  return {
+    x: (-raio * Math.sin(angulo)).toFixed(4),
+    y: (-raio * Math.cos(angulo)).toFixed(4),
+  };
+}
+
+const norte = aspecto ? marca(-aspecto.angulo_paralactico, 1.28) : null;
+const letraNorte = aspecto ? marca(-aspecto.angulo_paralactico, 1.52) : null;
+const legenda =
+  partida && aspecto
+    ? t("aspecto.legenda", {
+        lugar: partida.nome,
+        magnitude: formatarMagnitude(aspecto.magnitude),
+      })
+    : "";
+---
+
+{
+  partida && aspecto && circunstancias && (
+    <section class="aspecto">
+      <h2>{t("aspecto.titulo")}</h2>
+      <p class="discreto">{t("aspecto.ajuda")}</p>
+
+      <div
+        class="aspecto-grelha"
+        data-configuracao={JSON.stringify(configuracao)}
+      >
+        <figure class="desenho">
+          <svg viewBox="-1.8 -1.8 3.6 3.6" role="img" aria-label={legenda}>
+            <rect class="ceu" x="-1.8" y="-1.8" width="3.6" height="3.6" />
+
+            <g class="orientacao">
+              <line x1="0" y1="-1.18" x2="0" y2="-1.38" />
+              <text x="0" y="-1.46" text-anchor="middle">Z</text>
+              {norte && (
+                <>
+                  <circle class="marca-norte" cx={norte.x} cy={norte.y} r="0.045" />
+                  <text
+                    class="marca-norte-texto"
+                    x={letraNorte!.x}
+                    y={letraNorte!.y}
+                    text-anchor="middle"
+                    dominant-baseline="central"
+                  >
+                    N
+                  </text>
+                </>
+              )}
+            </g>
+
+            <circle class="sol" cx="0" cy="0" r="1" />
+            <circle
+              class="lua"
+              cx={aspecto.x.toFixed(5)}
+              cy={aspecto.y.toFixed(5)}
+              r={aspecto.razao.toFixed(5)}
+            />
+          </svg>
+          <figcaption class="discreto">
+            {t("aspecto.orientacao")}
+          </figcaption>
+        </figure>
+
+        <div class="controlo">
+          <p class="lugar" data-papel="lugar">{partida.nome}</p>
+          <dl class="dados">
+            <dt>{t("aspecto.instante")}</dt>
+            <dd data-papel="instante">{hora}</dd>
+            <dt>{t("ficha.tipo_local")}</dt>
+            <dd data-papel="fase">{NOMES_TIPO_LOCAL[circunstancias.tipo]}</dd>
+            <dt>{t("ficha.magnitude_maxima")}</dt>
+            <dd data-papel="magnitude">{formatarMagnitude(aspecto.magnitude)}</dd>
+            <dt>{t("ficha.obscuracao")}</dt>
+            <dd data-papel="obscuracao">{percentagem(aspecto.obscuracao)}</dd>
+            <dt>{t("aspecto.angulo_posicao")}</dt>
+            <dd data-papel="angulo">{graus(Math.round(aspecto.angulo_posicao) % 360, 0)}</dd>
+          </dl>
+
+          <div class="cursor so-com-js">
+            <label for="cursor-tempo">{t("aspecto.percorrer")}</label>
+            <input
+              id="cursor-tempo"
+              type="range"
+              min="0"
+              max="1000"
+              value="500"
+              step="1"
+            />
+            <button type="button" data-papel="maximo">
+              {t("aspecto.maximo")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+<script>
+  import { aspectoEm, faseDoAspeto, type AspectoDoSol } from "../lib/aspecto";
+  import {
+    circunstanciasNoPonto,
+    elementosDe,
+    type Circunstancias,
+  } from "../lib/besselian";
+  import {
+    NOMES_TIPO_LOCAL,
+    graus,
+    magnitude as formatarMagnitude,
+    percentagem,
+  } from "../lib/formatacao";
+  import { horaLocal, jdUtDeT } from "../lib/tempo";
+  import { territorioDe } from "../lib/territorios";
+  import type { EclipseCalculavel } from "../lib/circunstancias";
+
+  type Ponto = { lat: number; lon: number; nome: string };
+  type Configuracao = {
+    eclipse: EclipseCalculavel;
+    partida: Ponto | null;
+    textos: { zenite: string; norte: string; semEclipse: string };
+  };
+
+  const bloco = document.querySelector<HTMLElement>(".aspecto-grelha");
+  const configuracao: Configuracao | null = bloco?.dataset.configuracao
+    ? JSON.parse(bloco.dataset.configuracao)
+    : null;
+
+  if (bloco && configuracao?.partida) iniciar(bloco, configuracao);
+
+  function iniciar(bloco: HTMLElement, config: Configuracao) {
+    const elementos = elementosDe(config.eclipse);
+    const svg = bloco.querySelector<SVGSVGElement>("svg")!;
+    const lua = svg.querySelector<SVGCircleElement>(".lua")!;
+    const marcaNorte = svg.querySelector<SVGCircleElement>(".marca-norte");
+    const textoNorte = svg.querySelector<SVGTextElement>(".marca-norte-texto");
+    const cursor = bloco.querySelector<HTMLInputElement>("#cursor-tempo")!;
+    const parte = (papel: string) =>
+      bloco.querySelector<HTMLElement>(`[data-papel="${papel}"]`)!;
+
+    let ponto: Ponto = config.partida!;
+    let circunstancias = circunstanciasNoPonto(elementos, ponto.lat, ponto.lon);
+    // Guarda-se o instante, e nao a posicao do cursor. Assim, ao mudar de ponto
+    // no mapa, ve-se o mesmo instante fisico noutro sitio, que e a comparacao
+    // que interessa: a que horas cada terra estava a meio do eclipse.
+    let instante = circunstancias.t_maximo_td;
+
+    function janela(c: Circunstancias): { inicio: number; fim: number } {
+      // Sem contactos, mostra-se uma hora para cada lado do maximo, que chega
+      // para ver a Lua a passar ao lado do Sol.
+      const primeiro = c.contactos_td.c1 ?? c.t_maximo_td - 1;
+      const ultimo = c.contactos_td.c4 ?? c.t_maximo_td + 1;
+      if (!(ultimo > primeiro)) {
+        return { inicio: c.t_maximo_td - 1, fim: c.t_maximo_td + 1 };
+      }
+      // Uma pequena folga para cada lado dos contactos. Sem ela, o cursor no
+      // extremo cairia exactamente no instante da tangencia, onde a magnitude e
+      // zero e os discos ora se tocam ora nao, conforme o ultimo bit. Com folga,
+      // ve-se a Lua a chegar e a afastar-se, que e mais claro e mais honesto.
+      const folga = 0.03 * (ultimo - primeiro);
+      return { inicio: primeiro - folga, fim: ultimo + folga };
+    }
+
+    /** Poe o cursor onde o instante actual cair, depois de o trazer para dentro
+     * da janela do ponto: dois sitios diferentes nao veem o eclipse a mesma
+     * hora, e o instante que valia num pode ja nao valer no outro. */
+    function ajustarCursor() {
+      const { inicio, fim } = janela(circunstancias);
+      instante = Math.min(fim, Math.max(inicio, instante));
+      cursor.value = String(
+        Math.round(((instante - inicio) / (fim - inicio)) * 1000),
+      );
+    }
+
+    function desenhar() {
+      const t = instante;
+      const aspecto = aspectoEm(elementos, t, ponto.lat, ponto.lon);
+
+      lua.setAttribute("cx", aspecto.x.toFixed(5));
+      lua.setAttribute("cy", aspecto.y.toFixed(5));
+      lua.setAttribute("r", aspecto.razao.toFixed(5));
+
+      if (marcaNorte && textoNorte) {
+        const norte = marca(-aspecto.angulo_paralactico, 1.62);
+        marcaNorte.setAttribute("cx", norte.x);
+        marcaNorte.setAttribute("cy", norte.y);
+        textoNorte.setAttribute("x", norte.x);
+        textoNorte.setAttribute("y", norte.y);
+      }
+
+      const local = horaLocal(
+        jdUtDeT(config.eclipse, t),
+        ponto.lon,
+        territorioDe(ponto.lat, ponto.lon),
+      );
+      parte("lugar").textContent = ponto.nome;
+      parte("instante").textContent = local.hora;
+      parte("fase").textContent = nomeDaFase(aspecto);
+      parte("magnitude").textContent = formatarMagnitude(aspecto.magnitude);
+      parte("obscuracao").textContent = percentagem(aspecto.obscuracao);
+      parte("angulo").textContent = graus(
+        Math.round(aspecto.angulo_posicao) % 360,
+        0,
+      );
+    }
+
+    function nomeDaFase(aspecto: AspectoDoSol): string {
+      const fase = faseDoAspeto(aspecto);
+      return fase === "nenhuma"
+        ? config.textos.semEclipse
+        : NOMES_TIPO_LOCAL[fase];
+    }
+
+    cursor.addEventListener("input", () => {
+      const { inicio, fim } = janela(circunstancias);
+      instante = inicio + (Number(cursor.value) / 1000) * (fim - inicio);
+      desenhar();
+    });
+
+    parte("maximo").addEventListener("click", () => {
+      instante = circunstancias.t_maximo_td;
+      ajustarCursor();
+      desenhar();
+    });
+
+    // O mapa avisa por evento quando alguem aponta ou fixa um ponto. Os dois
+    // componentes nao se conhecem: partilham so o nome do evento.
+    document.addEventListener("eclipse:ponto", (evento) => {
+      const detalhe = (evento as CustomEvent<Ponto>).detail;
+      ponto = detalhe;
+      circunstancias = circunstanciasNoPonto(elementos, ponto.lat, ponto.lon);
+      ajustarCursor();
+      desenhar();
+    });
+
+    ajustarCursor();
+    desenhar();
+  }
+
+  function marca(anguloGraus: number, raio: number) {
+    const angulo = (anguloGraus * Math.PI) / 180;
+    return {
+      x: (-raio * Math.sin(angulo)).toFixed(4),
+      y: (-raio * Math.cos(angulo)).toFixed(4),
+    };
+  }
+</script>
+
+<style>
+  .aspecto-grelha {
+    display: grid;
+    grid-template-columns: minmax(12rem, 20rem) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  @media (max-width: 40rem) {
+    .aspecto-grelha {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .desenho {
+    margin: 0;
+  }
+
+  .desenho svg {
+    width: 100%;
+    height: auto;
+    border-radius: var(--raio);
+    display: block;
+  }
+
+  .desenho figcaption {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+  }
+
+  /* O ceu de um eclipse nao e o azul do meio-dia. Um azul escuro faz o disco
+     saltar a vista e nao mente sobre o que se ve com filtro. */
+  .ceu {
+    fill: #10162a;
+  }
+
+  .sol {
+    fill: #ffd166;
+  }
+
+  .lua {
+    fill: #10162a;
+    stroke: #2b3552;
+    stroke-width: 0.01;
+  }
+
+  .orientacao line {
+    stroke: #6b7694;
+    stroke-width: 0.02;
+  }
+
+  .orientacao text {
+    fill: #97a1bd;
+    font-size: 0.2px;
+    font-family: var(--tipografia-ui);
+  }
+
+  .marca-norte {
+    fill: #6b7694;
+  }
+
+  .marca-norte-texto {
+    fill: #97a1bd;
+    font-size: 0.18px;
+  }
+
+  .controlo .dados {
+    margin-top: 0;
+  }
+
+  .lugar {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+  }
+
+  .cursor {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.4rem;
+    max-width: 22rem;
+  }
+
+  .cursor label {
+    font-size: 0.9rem;
+    color: var(--texto-suave);
+  }
+
+  .cursor input[type="range"] {
+    width: 100%;
+  }
+
+  .cursor button {
+    justify-self: start;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.3rem;
+    background: var(--fundo-suave);
+    color: var(--texto);
+    cursor: pointer;
+  }
+</style>

@@ -268,6 +268,17 @@ def magnitude_em(
     return {
         "magnitude": magnitude,
         "obscuracao": obscuracao,
+        # `u` e `v` sao a posicao do eixo da sombra em relacao ao observador, no
+        # plano fundamental: `u` para leste e `v` para norte. Divididos pelo raio
+        # solar dao o afastamento aparente entre os centros dos dois discos, que
+        # e o que a simulacao do aspeto do Sol desenha.
+        "u": u,
+        "v": v,
+        # Angulo horario e declinacao do eixo da sombra, ou seja, com a exactidao
+        # que aqui interessa, os do proprio Sol vistos do ponto. Sao o que falta
+        # para orientar o desenho do disco solar em relacao ao zenite.
+        "angulo_horario": (h / GRAU + 180.0) % 360.0 - 180.0,
+        "declinacao": s.d / GRAU,
         "alt_sol": alt / GRAU,
         "az_sol": (az / GRAU) % 360.0,
         "sol_visivel": sol_visivel,

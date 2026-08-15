@@ -1,7 +1,9 @@
 ---
+import { getEntry, render } from "astro:content";
 import Base from "../../layouts/Base.astro";
 import EtiquetaTipo from "../../components/EtiquetaTipo.astro";
 import Mapa from "../../components/Mapa.astro";
+import SimulacaoSol from "../../components/SimulacaoSol.astro";
 import { t } from "../../i18n";
 import {
   NOMES_TERRITORIO,
@@ -53,6 +55,22 @@ const usaHoraSolar = TERRITORIOS.some((territorio) => {
 });
 
 const faixaEstreita = faixa !== null && !faixa.desenhavel_como_area;
+
+// O texto vem nos dois tempos verbais; escolhe-se o que fizer sentido a data em
+// que o site e construido. Um eclipse futuro passa a passado sozinho na primeira
+// build depois de acontecer.
+// Conteudo editorial, escrito a mao e opcional. As seccoes so aparecem quando
+// existe ficheiro para este eclipse; ver src/content/LEIAME.md.
+const nota = await getEntry("notas", eclipse.id);
+const Nota = nota ? (await render(nota)).Content : null;
+const galeria = await getEntry("galeria", eclipse.id);
+
+const hoje = new Date().toISOString().slice(0, 10);
+const abertura = eclipse.texto_gerado
+  ? eclipse.data_gregoriana > hoje
+    ? eclipse.texto_gerado.futuro
+    : eclipse.texto_gerado.passado
+  : null;
 ---
 
 <Base titulo={cabecalho} descricao={cabecalho}>
@@ -74,6 +92,8 @@ const faixaEstreita = faixa !== null && !faixa.desenhavel_como_area;
       }
     </span>
   </p>
+
+  {abertura && <p class="abertura">{abertura}</p>}
 
   {
     calendario === "juliano" && (
@@ -122,6 +142,8 @@ const faixaEstreita = faixa !== null && !faixa.desenhavel_como_area;
     faixa={faixa}
     niveis={niveis}
   />
+
+  <SimulacaoSol eclipse={eclipse} />
 
   <h2>{t("ficha.circunstancias")}</h2>
   <div class="grelha">
@@ -252,6 +274,69 @@ const faixaEstreita = faixa !== null && !faixa.desenhavel_como_area;
     )
   }
 
+  {
+    nota && Nota && (
+      <section class="notas">
+        <h2>{nota.data.titulo ?? t("ficha.notas")}</h2>
+        <div class="prosa">
+          <Nota />
+        </div>
+        {nota.data.fontes && nota.data.fontes.length > 0 && (
+          <>
+            <h3>{t("ficha.fontes")}</h3>
+            <ul class="fontes">
+              {nota.data.fontes.map((fonte) => (
+                <li>
+                  {fonte.url ? <a href={fonte.url}>{fonte.titulo}</a> : fonte.titulo}
+                  {fonte.autor && <span>, {fonte.autor}</span>}
+                  {fonte.publicacao && <span>, {fonte.publicacao}</span>}
+                  {fonte.ano && <span>, {fonte.ano}</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+    )
+  }
+
+  {
+    galeria && (
+      <section class="galeria">
+        <h2>{t("ficha.galeria")}</h2>
+        <div class="imagens">
+          {galeria.data.imagens.map((imagem) => {
+            const credito = [imagem.autor, imagem.ano, imagem.fonte]
+              .filter(Boolean)
+              .join(", ");
+            return (
+              <figure>
+                <img
+                  src={caminho(`imagens/${eclipse.id}/${imagem.ficheiro}`)}
+                  alt={imagem.alternativo ?? imagem.legenda}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  {imagem.legenda}
+                  <span class="credito">
+                    {credito && <>{credito}. </>}
+                    {imagem.url && (
+                      <>
+                        <a href={imagem.url}>{t("ficha.imagem_origem")}</a>.{" "}
+                      </>
+                    )}
+                    {t("ficha.licenca")}: {imagem.licenca}.
+                  </span>
+                </figcaption>
+              </figure>
+            );
+          })}
+        </div>
+      </section>
+    )
+  }
+
   <h2>{t("ficha.dados_globais")}</h2>
   <dl class="dados dados-globais">
     <dt>{t("ficha.tipo")}</dt>
@@ -310,6 +395,55 @@ const faixaEstreita = faixa !== null && !faixa.desenhavel_como_area;
 </Base>
 
 <style>
+  .prosa,
+  .fontes {
+    max-width: 44rem;
+  }
+
+  .fontes {
+    font-size: 0.95rem;
+  }
+
+  .imagens {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  }
+
+  .imagens figure {
+    margin: 0;
+  }
+
+  .imagens img {
+    width: 100%;
+    height: auto;
+    /* Uma gravura estreita e uma fotografia larga tem de caber lado a lado sem
+       uma delas dominar a pagina. */
+    max-height: 26rem;
+    object-fit: contain;
+    background: var(--fundo-suave);
+    border-radius: var(--raio);
+    border: 1px solid var(--linha);
+  }
+
+  .imagens figcaption {
+    margin-top: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .credito {
+    display: block;
+    color: var(--texto-suave);
+    font-size: 0.82rem;
+  }
+
+  .abertura {
+    font-family: var(--tipografia);
+    font-size: 1.15rem;
+    line-height: 1.55;
+    max-width: 44rem;
+  }
+
   .datas {
     display: flex;
     align-items: baseline;

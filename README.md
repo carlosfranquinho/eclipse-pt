@@ -24,12 +24,18 @@ uv run python pipeline/build_lugares.py          # um ponto por concelho, para a
 uv run python pipeline/build_index.py            # índice de eclipses visíveis
 uv run python pipeline/build_paths.py            # faixas e isomagnitudes
 uv run python pipeline/crossed_municipalities.py # concelhos atravessados
+uv run python pipeline/build_text.py             # parágrafo de abertura de cada ficha
 uv run python pipeline/gerar_golden.py           # casos de ouro para o teste do browser
 uv run pytest                                    # validação completa
 ```
 
 Os passos são independentes e a ordem acima é a das dependências entre eles. As
 descargas ficam em cache local, fora do git; só os dados derivados são commitados.
+
+Duas ordens que importam: `build_text.py` corre depois de `build_index.py`, porque
+o índice reescreve as fichas e levaria o texto com ele; e `gerar_golden.py` corre
+depois de qualquer alteração ao núcleo, senão o teste do browser passa a comparar
+o TypeScript com uma versão antiga do Python. Os testes avisam nos dois casos.
 
 ## Correr o site
 
@@ -74,6 +80,20 @@ testes, os dois em `site/test/`:
 - `ficha.test.ts` fecha o circuito com os dados publicados: para os eclipses todos,
   refaz no browser as circunstâncias no ponto que a ficha aponta e compara com os
   números que a ficha mostra.
+- `aspecto.test.ts` cobre a simulação do disco solar, que não tem contra o que ser
+  comparada e por isso se verifica por coerência: nos quatro contactos os discos
+  têm de estar tangentes, a magnitude desenhada tem de ser a calculada, e a Lua
+  tem de atravessar o Sol de oeste para leste.
+
+## Conteúdo escrito à mão
+
+Cada ficha aceita duas peças de conteúdo editorial, ambas opcionais e ambas fora
+do alcance do pipeline: uma nota em `site/src/content/notas/<id>.md`, para relatos
+de época e bibliografia, e uma galeria em `site/src/content/galeria/<id>.yaml`,
+para gravuras e fotografias. As secções só aparecem na ficha quando o ficheiro
+existe. O formato dos dois está em [`site/src/content/LEIAME.md`](site/src/content/LEIAME.md).
+
+Na galeria a licença é campo obrigatório: sem ela a build falha, de propósito.
 
 ## Convenções do projeto
 

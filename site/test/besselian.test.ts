@@ -67,6 +67,10 @@ interface CasoCircunstancias {
     t: number;
     magnitude: number;
     obscuracao: number;
+    u: number;
+    v: number;
+    angulo_horario: number;
+    declinacao: number;
     alt_sol: number;
     az_sol: number;
     separacao: number;
@@ -136,6 +140,20 @@ test("magnitude e altura do Sol em instantes fixos", () => {
 
       proximo(obtido.magnitude, amostra.magnitude, TOLERANCIA.magnitude, `${onde}: magnitude`);
       proximo(obtido.obscuracao, amostra.obscuracao, TOLERANCIA.magnitude, `${onde}: obscuracao`);
+      proximo(obtido.u, amostra.u, TOLERANCIA.geometria, `${onde}: u`);
+      proximo(
+        distanciaAngular(obtido.angulo_horario, amostra.angulo_horario),
+        0,
+        TOLERANCIA.angulo_graus,
+        `${onde}: angulo horario`,
+      );
+      proximo(
+        obtido.declinacao,
+        amostra.declinacao,
+        TOLERANCIA.angulo_graus,
+        `${onde}: declinacao`,
+      );
+      proximo(obtido.v, amostra.v, TOLERANCIA.geometria, `${onde}: v`);
       proximo(obtido.separacao, amostra.separacao, TOLERANCIA.geometria, `${onde}: separacao`);
       proximo(obtido.l1_obs, amostra.l1_obs, TOLERANCIA.geometria, `${onde}: l1_obs`);
       proximo(obtido.l2_obs, amostra.l2_obs, TOLERANCIA.geometria, `${onde}: l2_obs`);
