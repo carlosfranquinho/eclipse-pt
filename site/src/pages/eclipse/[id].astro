@@ -406,30 +406,38 @@ const abertura = eclipse.texto_gerado
     font-size: 0.95rem;
   }
 
+  /* Em linha e nao em grelha: cada imagem ocupa a largura que a sua forma pedir.
+     Numa grelha de colunas iguais, uma fotografia quadrada era esticada por uma
+     coluna larga e ficava com duas tiras de fundo vazio dos lados. */
   .imagens {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
     gap: 1.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    align-items: flex-start;
   }
 
   .imagens figure {
     margin: 0;
+    /* A largura sai da imagem, e a legenda quebra por baixo dela. */
+    flex: 0 1 auto;
+    max-width: 100%;
   }
 
   .imagens img {
-    width: 100%;
+    display: block;
+    width: auto;
     height: auto;
-    /* Uma gravura estreita e uma fotografia larga tem de caber lado a lado sem
-       uma delas dominar a pagina. */
-    max-height: 26rem;
-    object-fit: contain;
-    background: var(--fundo-suave);
+    /* A altura e o tecto, para uma gravura estreita e uma fotografia larga
+       poderem estar lado a lado sem uma delas dominar a pagina. */
+    max-height: 28rem;
+    max-width: 100%;
     border-radius: var(--raio);
     border: 1px solid var(--linha);
   }
 
   .imagens figcaption {
     margin-top: 0.4rem;
+    max-width: 34rem;
     font-size: 0.9rem;
   }
 

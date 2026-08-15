@@ -1092,13 +1092,33 @@ const camadas = [
     min-width: 0;
   }
 
+  /* A caixa do mapa segue a forma do que ele mostra: o pais inteiro e quase duas
+     vezes mais largo do que alto, com os Acores de um lado e a fronteira do
+     outro. Com uma altura fixa, num ecra estreito o mapa ficava com duas tiras
+     de oceano vazio em cima e em baixo, porque o enquadramento e limitado pela
+     largura. A altura minima garante que continua a dar para tocar nele, e a
+     maxima que nao ocupa o ecra todo num monitor grande. */
   .mapa {
     position: relative;
-    height: min(70vh, 34rem);
+    /* Sem altura minima: com a proporcao fixa, uma altura minima obrigava a
+       caixa a crescer em largura para a respeitar, e o mapa saia do ecra num
+       telemovel. Manda a largura disponivel, a altura segue-a. */
+    width: 100%;
+    aspect-ratio: 19 / 10;
+    max-height: min(70vh, 34rem);
     border: 1px solid var(--linha);
     border-radius: var(--raio);
     overflow: hidden;
     background: var(--fundo-suave);
+  }
+
+  /* Num ecra estreito, a forma do pais deixaria o mapa com dois palmos de
+     altura. Da-se-lhe mais altura a troco de uma nesga de oceano em cima e em
+     baixo, que e o mal menor. */
+  @media (max-width: 30rem) {
+    .mapa {
+      aspect-ratio: 3 / 2;
+    }
   }
 
   .aviso-mapa {
