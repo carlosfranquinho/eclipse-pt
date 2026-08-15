@@ -6,9 +6,13 @@
  * nenhum; abre por omissao o seculo em que estamos, que e por onde quase toda a
  * gente quer comecar.
  *
+ * So um esta aberto de cada vez: e o que o atributo `name` faz, sem JavaScript
+ * nenhum, nos browsers que ja o suportam. Nos que ainda nao, podem ficar varios
+ * abertos, que era o comportamento anterior.
+ *
  * Os filtros mexem nestes blocos: escondem os seculos que ficam sem nada e
- * abrem os que tem alguma coisa, para ninguem filtrar e ficar a olhar para uma
- * lista de titulos fechados. Ver o script em Filtros.astro.
+ * abrem o primeiro que tenha alguma coisa, para ninguem filtrar e ficar a olhar
+ * para uma lista de titulos fechados. Ver o script em Filtros.astro.
  */
 import EtiquetaTipo from "./EtiquetaTipo.astro";
 import { t } from "../i18n";
@@ -56,6 +60,7 @@ const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
     grupos.map((grupo) => (
       <details
         class="seculo"
+        name="seculo-do-catalogo"
         data-grupo={grupo.inicio}
         open={grupo.inicio === seculoActual}
       >

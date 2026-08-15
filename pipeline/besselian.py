@@ -681,6 +681,71 @@ def magnitude_visivel(
     return np.where(r["sol_visivel"], r["magnitude"], 0.0)
 
 
+def magnitude_maxima_visivel(
+    e: Elementos, t_maximo: Any, lat_graus: Any, lon_graus: Any, altura_m: Any = 0.0
+) -> Any:
+    """A maior magnitude que ali se chegou a ver, com o Sol acima do horizonte.
+
+    Nos eclipses ao nascer ou ao por do Sol ha uma faixa do pais onde o maximo
+    geometrico acontece com o Sol ainda (ou ja) abaixo do horizonte. Perguntar
+    pela magnitude nesse instante da zero, e o mapa ficava com um degrau abrupto
+    a dizer que ali nao se viu nada, quando o que se viu foi meio Sol tapado a
+    nascer.
+
+    O que se ve nesses pontos e o que restava no proprio nascer ou por do Sol: a
+    magnitude cai com o afastamento ao instante de maximo, por isso o maior
+    valor visivel esta no limite da janela de visibilidade. Procura-se esse
+    limite por bisseccao, e so para os pontos que dele precisam.
+    """
+    t_maximo = np.asarray(t_maximo, dtype=float)
+    lat = np.broadcast_to(np.asarray(lat_graus, dtype=float), t_maximo.shape)
+    lon = np.broadcast_to(np.asarray(lon_graus, dtype=float), t_maximo.shape)
+
+    no_maximo = magnitude_em(e, t_maximo, lat, lon, altura_m)
+    magnitude = np.where(no_maximo["sol_visivel"], no_maximo["magnitude"], 0.0)
+
+    # So interessam os pontos que estao dentro da penumbra e com o Sol em baixo.
+    a_corrigir = (~no_maximo["sol_visivel"]) & (no_maximo["magnitude"] > 0.0)
+    if not np.any(a_corrigir):
+        return magnitude
+
+    t_alvo = t_maximo[a_corrigir]
+    lat_alvo = lat[a_corrigir]
+    lon_alvo = lon[a_corrigir]
+
+    def altura(t: Any) -> Any:
+        return magnitude_em(e, t, lat_alvo, lon_alvo, altura_m)["alt_sol"]
+
+    # Para que lado fica o horizonte: se o Sol esta a subir, o nascer e a seguir;
+    # se esta a descer, o por foi antes.
+    passo = 1.0 / 60.0
+    a_subir = altura(t_alvo + passo) > altura(t_alvo)
+    sentido = np.where(a_subir, 1.0, -1.0)
+
+    # A janela e generosa: um eclipse parcial dura umas horas e o horizonte esta
+    # sempre mais perto do que isso.
+    JANELA_HORAS = 6.0
+    longe = t_alvo + sentido * JANELA_HORAS
+    alcancavel = altura(longe) > 0.0
+
+    perto = t_alvo.copy()
+    distante = longe.copy()
+    for _ in range(30):
+        meio = (perto + distante) / 2.0
+        acima = altura(meio) > 0.0
+        distante = np.where(acima, meio, distante)
+        perto = np.where(acima, perto, meio)
+
+    no_horizonte = magnitude_em(e, distante, lat_alvo, lon_alvo, altura_m)
+    corrigida = np.where(
+        alcancavel & no_horizonte["sol_visivel"], no_horizonte["magnitude"], 0.0
+    )
+
+    resultado = magnitude.copy()
+    resultado[a_corrigir] = corrigida
+    return resultado
+
+
 def magnitude_maxima_na_grelha(
     e: Elementos,
     lat_min: float,

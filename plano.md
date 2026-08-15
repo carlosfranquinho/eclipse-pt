@@ -496,3 +496,23 @@ passar de parcial visto de Portugal, e é o segundo dado que interessa a quem es
 cá. A etiqueta passou a trazer as duas coisas: o tipo do eclipse e, quando
 diferem, o que dele se viu no território onde foi mais fundo. Acontece em 356 dos
 471 eclipses do catálogo. O índice leve ganhou o campo `pt.tipo_local` para isso.
+
+**Isomagnitudes em zonas sombreadas.** Eram curvas de nivel, passam a areas: a
+mesma sombra da faixa de totalidade, a esbater-se para fora. Cada feicao e a
+zona entre dois niveis, recortada pelo contorno do territorio com uma margem de
+mar, e o mapa da-lhe tanto mais cor quanto mais fundo o eclipse for la dentro.
+
+Ao faze-lo apareceu um defeito que as curvas ja tinham: nos eclipses ao nascer e
+ao por do Sol, o maximo geometrico da-se com o Sol ainda abaixo do horizonte, e
+a magnitude visivel nesse instante e zero. O mapa punha um degrau a dizer que
+nao se via nada onde se viu meio Sol tapado a nascer. Passou a usar-se a maior
+magnitude atingida com o Sol acima do horizonte, que e o que ali se viu.
+
+**A grelha da linha temporal le-se pelo tamanho.** A intensidade sozinha nao
+chegava: num quadrado de quatro pixeis, e com a cor ja tomada pelo tipo de
+eclipse, uma diferenca de opacidade nao se ve. A profundidade passou a mandar
+tambem no tamanho do quadrado.
+
+**Acordeao exclusivo.** Abrir um seculo fecha o anterior, pelo atributo `name`
+dos `details`, sem JavaScript. Com filtro, abre-se o primeiro seculo que tenha
+resultados.

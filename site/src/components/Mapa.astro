@@ -18,6 +18,7 @@ import type {
   MunicipiosAtravessados,
   Recursos,
   Territorio,
+  ZonaIsomagnitude,
 } from "../lib/tipos";
 import { caminho } from "../lib/urls";
 
@@ -26,7 +27,7 @@ interface Props {
   recursos: Recursos;
   municipios: MunicipiosAtravessados | null;
   faixa: MetadadosFaixa | null;
-  niveis: number[];
+  niveis: ZonaIsomagnitude[];
 }
 
 const { eclipse, recursos, municipios, faixa, niveis } = Astro.props;
@@ -271,10 +272,15 @@ const camadas = [
         <fieldset>
           <legend>{t("mapa.isomagnitudes")}</legend>
           <ul class="legenda">
-            {niveis.map((nivel) => (
+            {niveis.map((zona) => (
               <li>
-                <span class="amostra" data-isomagnitude={nivel} />
-                {numero(nivel, 2)}
+                <span class="amostra" data-isomagnitude={zona.de} />
+                {zona.ate >= 1
+                  ? t("mapa.isomagnitude_acima", { de: numero(zona.de, 2) })
+                  : t("mapa.isomagnitude_entre", {
+                      de: numero(zona.de, 2),
+                      ate: numero(zona.ate, 2),
+                    })}
               </li>
             ))}
           </ul>
@@ -429,27 +435,34 @@ const camadas = [
     ];
 
     if (config.urls.isomagnitudes) {
+      // Zonas sombreadas, na cor da faixa e cada vez mais carregadas para
+      // dentro: e a mesma sombra da faixa de totalidade a esbater-se para fora,
+      // e nao um mapa de curvas de nivel. Cada feicao traz o limite inferior da
+      // sua zona em `magnitude`, e e por ai que se lhe da a cor.
       camadas.push({
         id: "isomagnitudes",
-        type: "line",
+        type: "fill",
         source: "isomagnitudes",
         paint: {
-          // Do azul frio nas magnitudes baixas ao quente junto da totalidade.
-          "line-color": [
-            "interpolate",
-            ["linear"],
+          "fill-color": cores.faixa,
+          "fill-opacity": [
+            "step",
             ["get", "magnitude"],
-            0.2,
-            "#38bdf8",
+            0.05,
+            0.4,
+            0.08,
             0.6,
-            "#22c55e",
+            0.12,
+            0.8,
+            0.16,
             0.9,
-            "#f59e0b",
+            0.2,
+            0.95,
+            0.24,
             0.99,
-            "#dc2626",
+            0.3,
           ],
-          "line-width": 1.4,
-          "line-opacity": 0.9,
+          "fill-antialias": true,
         },
       });
     }
@@ -549,6 +562,7 @@ const camadas = [
     definir("costa", "line-color", cores.costa);
     definir("concelhos", "line-color", cores.concelho);
     definir("faixa", "fill-color", cores.faixa);
+    definir("isomagnitudes", "fill-color", cores.faixa);
     definir("faixa-contorno", "line-color", cores.faixa);
     definir("central", "line-color", cores.central);
     definir("atravessados", "fill-color", cores.atravessado);
@@ -1120,33 +1134,37 @@ const camadas = [
     gap: 0.4rem;
   }
 
+  /* As amostras da legenda repetem o que o mapa faz: a mesma cor da faixa, com
+     a opacidade a crescer com a magnitude. */
   .amostra {
-    width: 1.4rem;
-    height: 0.2rem;
-    border-radius: 1px;
-    background: var(--tipo-parcial);
+    width: 1.1rem;
+    height: 0.9rem;
+    border-radius: 2px;
+    border: 1px solid var(--linha);
+    background: var(--realce);
+    opacity: 0.3;
   }
 
   .amostra[data-isomagnitude="0.2"] {
-    background: #38bdf8;
+    opacity: 0.16;
   }
   .amostra[data-isomagnitude="0.4"] {
-    background: #22c55e;
+    opacity: 0.26;
   }
   .amostra[data-isomagnitude="0.6"] {
-    background: #22c55e;
+    opacity: 0.4;
   }
   .amostra[data-isomagnitude="0.8"] {
-    background: #a3b100;
+    opacity: 0.52;
   }
   .amostra[data-isomagnitude="0.9"] {
-    background: #f59e0b;
+    opacity: 0.66;
   }
   .amostra[data-isomagnitude="0.95"] {
-    background: #ef6a11;
+    opacity: 0.8;
   }
   .amostra[data-isomagnitude="0.99"] {
-    background: #dc2626;
+    opacity: 1;
   }
 
   :global(.maplibregl-popup-content) {

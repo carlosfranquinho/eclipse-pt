@@ -12,6 +12,7 @@ import type {
   MetadadosFaixa,
   MunicipiosAtravessados,
   Recursos,
+  ZonaIsomagnitude,
 } from "./tipos";
 
 /** Caminho absoluto de `public/data/`, injectado pelo astro.config.mjs. */
@@ -67,13 +68,17 @@ export function metadadosFaixa(id: string): MetadadosFaixa | null {
 
 /** Os niveis de isomagnitude presentes no ficheiro, do mais baixo ao mais alto.
  * A legenda do mapa so mostra os que existem neste eclipse. */
-export function niveisIsomagnitude(id: string): number[] {
+export function niveisIsomagnitude(id: string): ZonaIsomagnitude[] {
   if (!existe(id, "isomag.geojson")) return [];
   const colecao = ler<{
-    features: { properties: { magnitude: number } }[];
+    features: { properties: ZonaIsomagnitude }[];
   }>(`${id}/isomag.geojson`);
-  const niveis = new Set(colecao.features.map((f) => f.properties.magnitude));
-  return [...niveis].sort((a, b) => a - b);
+  const zonas = new Map<number, ZonaIsomagnitude>();
+  for (const feicao of colecao.features) {
+    const { de, ate } = feicao.properties;
+    zonas.set(de, { de, ate });
+  }
+  return [...zonas.values()].sort((a, b) => a.de - b.de);
 }
 
 function existe(id: string, ficheiro: string): boolean {

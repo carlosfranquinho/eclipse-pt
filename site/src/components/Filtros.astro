@@ -206,6 +206,11 @@ const intervalos = periodos(eclipses);
     }
 
     function arrumarSeculos(comFiltro: boolean) {
+      // So um seculo fica aberto de cada vez, como fora do filtro: com filtro,
+      // abre-se o primeiro que tenha resultados. Abrir todos seria pedir ao
+      // browser que desfizesse a exclusividade a seguir, e ficava aberto um
+      // qualquer.
+      let jaAbriu = false;
       for (const seculo of seculos) {
         const restantes = seculo.querySelectorAll(
           "tbody [data-eclipse]:not([hidden])",
@@ -220,9 +225,11 @@ const intervalos = periodos(eclipses);
         }
 
         seculo.hidden = restantes === 0;
-        seculo.open = comFiltro
-          ? restantes > 0
+        const deveAbrir = comFiltro
+          ? !jaAbriu && restantes > 0
           : abertosDeInicio.has(seculo.dataset.grupo);
+        seculo.open = deveAbrir;
+        if (deveAbrir) jaAbriu = true;
       }
     }
     const saidaMagnitude = document.getElementById(

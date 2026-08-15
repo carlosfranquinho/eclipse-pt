@@ -145,6 +145,13 @@ export interface MetadadosFaixa {
   desenhavel_como_area: boolean;
 }
 
+/** Uma zona de igual magnitude, entre dois niveis. A ultima nao tem tecto: vai
+ * do 0,99 ao que der, que num eclipse total passa de 1. */
+export interface ZonaIsomagnitude {
+  de: number;
+  ate: number;
+}
+
 /** Que ficheiros existem para um eclipse, tal como estao em disco. */
 export interface Recursos {
   linha_central: string | null;

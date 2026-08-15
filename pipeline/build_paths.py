@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import json
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
 from contourpy import contour_generator
-from shapely.geometry import LineString, MultiPolygon, Polygon, mapping
+from shapely.geometry import LineString, MultiPolygon, Polygon, mapping, shape
 from shapely.ops import unary_union
 
 import besselian as b
@@ -37,7 +38,22 @@ CAIXAS = {
     "madeira": (29.5, 33.8, -18.0, -15.0),
 }
 
+# Fronteiras das faixas de igual magnitude. Cada par de valores seguidos e uma
+# zona sombreada no mapa; a ultima vai do 0,99 ao fim, que num total chega a
+# passar de 1. Sao mais apertadas junto ao 1 porque e ai que a diferenca se ve:
+# entre 0,2 e 0,4 o dia e o mesmo, entre 0,95 e 0,99 nao e.
 NIVEIS_ISOMAGNITUDE = [0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99]
+LIMITE_SUPERIOR_ISOMAGNITUDE = 2.0
+
+# Tolerancia de simplificacao dos poligonos de isomagnitude, em graus. Cerca de
+# um quilometro: as curvas sao suaves a escala de um pais e sem isto os ficheiros
+# triplicavam sem nada mudar no ecra.
+TOLERANCIA_ISOMAGNITUDE = 0.01
+
+# Margem de mar a volta da costa, em graus, com que se recortam as zonas de
+# magnitude. Uns vinte quilometros: o suficiente para a sombra nao acabar
+# encostada a linha de costa e para nao aparecer a aresta da caixa de calculo.
+MARGEM_DE_MAR = 0.2
 
 # Abaixo desta largura, desenhar a faixa como poligono seria uma mentira visual:
 # a escala do mapa, um poligono de um quilometro e mais fino que o traco. Nesses
@@ -287,13 +303,45 @@ def _larguras_relevantes(perfil: list[dict]) -> dict:
     }
 
 
-def isomagnitudes(el: b.Elementos) -> list[dict]:
-    """Contornos de igual magnitude, por territorio.
+@lru_cache(maxsize=1)
+def _terra() -> dict:
+    """O contorno de cada territorio, folgado, para recortar as zonas.
 
-    Calculam-se sobre a caixa inteira, incluindo mar, para os contornos saírem
-    continuos. Recortar a terra deixaria as curvas a acabar abruptamente na costa.
+    Sem isto as zonas acabavam a direito, na aresta da caixa em que foram
+    calculadas, e o mapa mostrava um rectangulo sombreado com um canto no meio do
+    Atlantico. Recortadas pela terra, com uma margem de mar a volta, leem-se como
+    o que sao: a sombra sobre o pais.
+    """
+    caminho = RAIZ / "site" / "public" / "geo" / "territorios.geojson"
+    if not caminho.exists():
+        raise SystemExit(f"{caminho} em falta. Correr build_geo.py antes.")
+    dados = json.loads(caminho.read_text())
+    # A forma de recorte e grosseira de proposito. Recortar pela costa ao
+    # pormenor punha na sombra todos os vertices da linha de costa, e os
+    # ficheiros passavam de tres para trinta megabytes sem nada mudar no ecra:
+    # por baixo de uma mancha translucida, uma ria nao se distingue de uma baia.
+    return {
+        f["properties"]["territorio"]: shape(f["geometry"])
+        .buffer(MARGEM_DE_MAR)
+        .simplify(MARGEM_DE_MAR / 4)
+        for f in dados["features"]
+    }
+
+
+def isomagnitudes(el: b.Elementos) -> list[dict]:
+    """Zonas de igual magnitude, por territorio.
+
+    Sao areas e nao curvas: a leitura pretendida e a de uma sombra que vai
+    escurecendo para dentro, a mesma ideia da faixa de totalidade, e nao a de um
+    mapa topografico. Cada feicao e a zona entre dois niveis, e o mapa da-lhe
+    tanto mais cor quanto mais fundo for o eclipse la dentro.
+
+    Calculam-se sobre a caixa inteira, incluindo mar, para as zonas saírem
+    continuas. Recortar a terra deixaria-as a acabar abruptamente na costa.
     """
     feicoes = []
+    fronteiras = [*NIVEIS_ISOMAGNITUDE, LIMITE_SUPERIOR_ISOMAGNITUDE]
+
     for territorio, (lat_min, lat_max, lon_min, lon_max) in CAIXAS.items():
         lats = np.arange(lat_min, lat_max, PASSO_GRELHA_ISOMAGNITUDE)
         lons = np.arange(lon_min, lon_max, PASSO_GRELHA_ISOMAGNITUDE)
@@ -313,33 +361,81 @@ def isomagnitudes(el: b.Elementos) -> list[dict]:
         instantes = b.instante_maximo_em_pontos(
             el, malha_lat, malha_lon, t_inicial=t_sonda
         )
-        magnitudes = b.magnitude_visivel(el, instantes, malha_lat, malha_lon)
+        # A maior magnitude que ali se chegou a ver, e nao a do instante de
+        # maximo: nos eclipses ao nascer ou ao por do Sol as duas coisas nao sao
+        # a mesma, e o mapa ficava com um degrau a dizer que nao se viu nada.
+        magnitudes = b.magnitude_maxima_visivel(el, instantes, malha_lat, malha_lon)
 
         if magnitudes.max() < NIVEIS_ISOMAGNITUDE[0]:
             continue
 
-        grelha = {"lat": lats, "lon": lons, "magnitude": magnitudes}
-        gerador = contour_generator(x=lons, y=lats, z=magnitudes)
-        for nivel in NIVEIS_ISOMAGNITUDE:
-            if not (grelha["magnitude"].min() < nivel < grelha["magnitude"].max()):
+        gerador = contour_generator(
+            x=lons, y=lats, z=magnitudes, fill_type="OuterOffset"
+        )
+        for inferior, superior in zip(fronteiras, fronteiras[1:]):
+            if magnitudes.max() <= inferior:
                 continue
-            for linha in gerador.lines(nivel):
-                if len(linha) < 3:
-                    continue
-                feicoes.append(
-                    {
-                        "type": "Feature",
-                        "properties": {
-                            "magnitude": nivel,
-                            "percentagem": round(nivel * 100, 1),
-                            "territorio": territorio,
-                        },
-                        "geometry": mapping(
-                            LineString([(float(x), float(y)) for x, y in linha])
-                        ),
-                    }
-                )
+
+            zona = _zona_entre(gerador, inferior, superior)
+            if zona is None:
+                continue
+
+            zona = zona.intersection(_terra()[territorio]).simplify(
+                TOLERANCIA_ISOMAGNITUDE, preserve_topology=True
+            )
+            if zona.is_empty:
+                continue
+
+            feicoes.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        # `magnitude` continua a ser o limite inferior, que e por
+                        # onde a zona se identifica e se ordena.
+                        "magnitude": inferior,
+                        "de": inferior,
+                        "ate": superior,
+                        "percentagem": round(inferior * 100, 1),
+                        "territorio": territorio,
+                    },
+                    "geometry": mapping(zona),
+                }
+            )
     return feicoes
+
+
+def _zona_entre(gerador, inferior: float, superior: float):
+    """A area onde a magnitude fica entre dois niveis, ja simplificada.
+
+    O contourpy devolve cada poligono como um bloco de pontos mais os desvios
+    que separam o contorno exterior dos buracos. E precisamente a forma de que a
+    shapely precisa, com os buracos a explicar-se sozinhos: a zona de 0,8 a 0,9
+    tem um buraco por dentro, que e a zona de 0,9 para cima.
+    """
+    lista_pontos, lista_desvios = gerador.filled(inferior, superior)
+
+    poligonos = []
+    for pontos, desvios in zip(lista_pontos, lista_desvios):
+        aneis = [
+            pontos[inicio:fim]
+            for inicio, fim in zip(desvios, desvios[1:])
+            if fim - inicio >= 4
+        ]
+        if not aneis:
+            continue
+        poligono = Polygon(aneis[0], aneis[1:])
+        if not poligono.is_valid:
+            poligono = poligono.buffer(0)
+        if not poligono.is_empty:
+            poligonos.append(poligono)
+
+    if not poligonos:
+        return None
+
+    zona = unary_union(poligonos).simplify(
+        TOLERANCIA_ISOMAGNITUDE, preserve_topology=True
+    )
+    return None if zona.is_empty else zona
 
 
 def gerar(eclipse_id: str) -> dict:

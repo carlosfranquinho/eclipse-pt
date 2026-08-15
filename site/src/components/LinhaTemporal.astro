@@ -176,7 +176,7 @@ const tipos: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
     aspect-ratio: 1;
     border-radius: 1.5px;
     background: var(--linha);
-    opacity: 0.45;
+    opacity: 0.4;
   }
 
   .com-eclipse {
@@ -184,26 +184,40 @@ const tipos: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
     opacity: 1;
   }
 
-  .com-eclipse.nivel-1 {
-    opacity: 0.34;
+  /* A profundidade le-se pelo tamanho, nao so pela intensidade.
+     Num quadrado de quatro pixeis, e com a cor ja tomada pelo tipo de eclipse,
+     uma diferenca de opacidade sozinha nao se ve: ao lado de um amarelo forte,
+     um roxo esbatido continua a ser um roxo. O tamanho ve-se sempre, e o par
+     dos dois torna a leitura imediata. */
+  .nivel-1 {
+    transform: scale(0.45);
+    opacity: 0.55;
   }
-  .com-eclipse.nivel-2 {
-    opacity: 0.56;
+  .nivel-2 {
+    transform: scale(0.66);
+    opacity: 0.7;
   }
-  .com-eclipse.nivel-3 {
-    opacity: 0.78;
+  .nivel-3 {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  .nivel-4 {
+    transform: scale(1);
+    opacity: 1;
   }
 
   .com-eclipse:hover {
     outline: 2px solid var(--texto);
     outline-offset: 1px;
+    transform: scale(1);
     opacity: 1;
   }
 
   /* Filtrado: o ano continua la, mas apagado como um ano sem eclipse. */
   .com-eclipse.apagado {
     background: var(--linha);
-    opacity: 0.45;
+    transform: scale(1);
+    opacity: 0.4;
     pointer-events: none;
   }
 
@@ -224,10 +238,16 @@ const tipos: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
   }
 
   .amostra {
-    width: 0.7rem;
-    height: 0.7rem;
+    width: 0.8rem;
+    height: 0.8rem;
     border-radius: 1.5px;
     background: currentcolor;
+  }
+
+  /* Os quadrados da escala mostram o que mostram os do calendario: o tamanho
+     e a intensidade a crescer com a profundidade. */
+  .escala .amostra {
+    background: var(--tipo-total);
   }
 
   .escala {

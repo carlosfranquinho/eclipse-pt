@@ -107,7 +107,7 @@
   "mapa.camadas": "Camadas",
   "mapa.faixa": "Faixa de totalidade ou anularidade",
   "mapa.linha_central": "Linha central",
-  "mapa.isomagnitudes": "Isomagnitudes",
+  "mapa.isomagnitudes": "Zonas de magnitude",
   "mapa.concelhos": "Limites de concelho",
   "mapa.concelhos_atravessados": "Concelhos atravessados",
   "mapa.fundo_osm": "Fundo de terreno (OpenStreetMap)",
@@ -115,7 +115,8 @@
   "mapa.a_carregar": "A carregar o mapa",
   "mapa.sem_javascript": "O mapa precisa de JavaScript. Os números da ficha estão todos acima, em texto.",
   "mapa.erro": "Não foi possível carregar o mapa.",
-  "mapa.legenda_isomagnitude": "Isomagnitude {valor}",
+  "mapa.isomagnitude_entre": "{de} a {ate}",
+  "mapa.isomagnitude_acima": "{de} ou mais",
 
   "ponto.titulo": "Cálculo ao vivo",
   "ponto.ajuda": "Passe o rato ou toque no mapa para ver o que se viu em qualquer ponto. Os números são calculados no momento, no seu computador, a partir dos mesmos elementos besselianos que dão os números desta ficha.",

@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from shapely.geometry import shape
 
 import besselian as b
 import territorios
@@ -35,6 +36,16 @@ def indice() -> list[dict]:
 @pytest.fixture(scope="module")
 def por_id(indice: list[dict]) -> dict[str, dict]:
     return {e["id"]: e for e in indice}
+
+
+# Folga na comparacao de magnitudes dentro de uma zona. E o preco da resolucao
+# da grelha com que os contornos sao tracados, quatro centesimos de grau: um
+# ponto representativo pode cair encostado a fronteira da zona.
+FOLGA_ISOMAGNITUDE = 0.03
+
+# Largura maxima da orla em que duas zonas seguidas se podem sobrepor, em graus.
+# Duas vezes a tolerancia com que os poligonos sao simplificados.
+LARGURA_MAXIMA_DA_ORLA = 0.02
 
 
 def ficha(eclipse_id: str) -> dict:
@@ -190,12 +201,69 @@ class TestCartografia:
             assert len(faixa["features"]) <= 4, entrada["id"]
 
     def test_isomagnitudes_bem_formadas(self, indice):
+        """As zonas de igual magnitude sao areas, e cada uma vale o que diz.
+
+        A verificacao que interessa nao e topologica: e ir a um ponto de dentro
+        de cada zona, calcular ali a maior magnitude que se chegou a ver, e
+        exigir que caia no intervalo que a zona anuncia. Se um contorno estiver
+        deslocado, ou se as propriedades e a geometria se tiverem desencontrado,
+        e aqui que se ve.
+
+        As zonas nem sempre sao aneis encaixados: quando o eclipse so aprofunda
+        para la da caixa do territorio, saem faixas paralelas cortadas pela
+        moldura. O que se mantem sempre e que nao se sobrepoem.
+        """
         for entrada in indice[:: max(1, len(indice) // 20)]:
             caminho = DADOS / entrada["id"] / "isomag.geojson"
             if not caminho.exists():
                 continue
-            curvas = json.loads(caminho.read_text())
-            for feicao in curvas["features"]:
-                assert feicao["geometry"]["type"] == "LineString"
-                assert len(feicao["geometry"]["coordinates"]) >= 3
-                assert 0 < feicao["properties"]["magnitude"] <= 1
+
+            dados = ficha(entrada["id"])
+            el = b.Elementos.de_dict(dados["elementos"], dados["delta_t_s"])
+            zonas = json.loads(caminho.read_text())
+
+            por_territorio: dict[str, list] = {}
+            for feicao in zonas["features"]:
+                assert feicao["geometry"]["type"] in ("Polygon", "MultiPolygon")
+                propriedades = feicao["properties"]
+                assert 0 < propriedades["de"] < propriedades["ate"]
+                assert propriedades["magnitude"] == propriedades["de"]
+
+                forma = shape(feicao["geometry"])
+                assert forma.is_valid, entrada["id"]
+
+                ponto = forma.representative_point()
+                instante = b.instante_maximo_em_pontos(
+                    el, np.array([ponto.y]), np.array([ponto.x])
+                )
+                magnitude = float(
+                    b.magnitude_maxima_visivel(el, instante, ponto.y, ponto.x)[0]
+                )
+                assert (
+                    propriedades["de"] - FOLGA_ISOMAGNITUDE
+                    <= magnitude
+                    <= propriedades["ate"] + FOLGA_ISOMAGNITUDE
+                ), (
+                    f"{entrada['id']}: dentro da zona de {propriedades['de']}"
+                    f" a {propriedades['ate']} a magnitude e {magnitude:.4f}"
+                )
+
+                por_territorio.setdefault(propriedades["territorio"], []).append(
+                    (propriedades["de"], forma)
+                )
+
+            for territorio, lista in por_territorio.items():
+                lista.sort(key=lambda par: par[0])
+                for (_, fora), (nivel, dentro) in zip(lista, lista[1:]):
+                    # Duas zonas seguidas partilham a fronteira, e a
+                    # simplificacao mexe-lhe uns metros para cada lado. O que
+                    # nao pode haver e sobreposicao a serio, por isso mede-se a
+                    # largura media da lasca e nao a sua area: uma orla de umas
+                    # centenas de metros e o esperado, uma regiao contada duas
+                    # vezes teria a largura da propria regiao.
+                    lasca = fora.intersection(dentro).area
+                    largura = lasca / min(fora.length, dentro.length)
+                    assert largura < LARGURA_MAXIMA_DA_ORLA, (
+                        f"{entrada['id']} em {territorio}: a zona de {nivel}"
+                        f" sobrepoe-se a de fora numa orla de {largura:.4f} graus"
+                    )
