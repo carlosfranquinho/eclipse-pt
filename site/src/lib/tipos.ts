@@ -51,6 +51,9 @@ export type CircunstanciasTerritorio = TerritorioVisivel | TerritorioInvisivel;
 
 export interface ResumoPortugal {
   magnitude_max: number;
+  /** O que se viu de Portugal, no territorio onde o eclipse foi mais fundo. Um
+   * eclipse total no mundo pode nao passar de parcial visto daqui. */
+  tipo_local: TipoLocal;
   faixa_central: boolean;
   territorios_visiveis: Territorio[];
 }

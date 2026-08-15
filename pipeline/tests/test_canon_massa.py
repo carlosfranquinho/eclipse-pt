@@ -88,7 +88,7 @@ class TestCobertura:
         assert len(canon) > 2300, "o cache do canon parece truncado"
         anos = [e["ano"] for e in canon]
         assert min(anos) == 1500
-        assert max(anos) == 2500
+        assert max(anos) == 2499
 
     def test_todos_os_tipos_representados(self, canon):
         tipos = {e["tipo"] for e in canon}

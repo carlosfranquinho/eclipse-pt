@@ -1,93 +1,133 @@
 ---
+/** Mil anos de eclipses numa grelha: um quadrado por ano, uma linha por seculo.
+ *
+ * A fita de marcas que aqui estava antes servia para seiscentos anos e deixou de
+ * servir para mil: as marcas encostavam-se umas as outras e o que se via era uma
+ * mancha. A grelha resolve-o mudando de eixo. Cada linha e um seculo, cada
+ * coluna e o ano dentro dele, e assim cabem mil anos num sitio onde antes mal
+ * cabiam seiscentos, com cada ano a ter o seu lugar fixo.
+ *
+ * A cor diz o tipo do eclipse mais fundo desse ano e a intensidade diz quanto do
+ * Sol chegou a ser tapado. Um ano sem nada fica com um quadrado apagado, o que
+ * torna visivel uma coisa que a fita escondia: os intervalos de anos seguidos em
+ * que Portugal nao ve eclipse nenhum.
+ *
+ * A grelha e para ver, nao para navegar com o teclado: sao centenas de
+ * quadrados, e obrigar alguem a passar por todos com o tabulador seria mau
+ * servico. Fica marcada como decorativa e o caminho acessivel e o catalogo, logo
+ * a seguir, que tem os mesmos eclipses em tabela.
+ */
 import { t } from "../i18n";
 import {
   NOMES_TIPO,
-  dataPorExtenso,
-  dataVigente,
-  magnitude,
+  magnitude as formatarMagnitude,
   partesData,
 } from "../lib/formatacao";
-import type { EntradaIndice } from "../lib/tipos";
+import type { EntradaIndice, TipoEclipse } from "../lib/tipos";
 import { urlEclipse } from "../lib/urls";
-import { atributosFiltro } from "../lib/filtros";
+import { nivelDeMagnitude } from "../lib/filtros";
 
 interface Props {
   eclipses: EntradaIndice[];
-  inicio?: number;
-  fim?: number;
 }
 
-// Os limites saem do proprio catalogo, arredondados ao seculo. Assim a linha
-// acompanha o intervalo dos dados sem ninguem ter de lhe tocar quando ele muda.
-const anos = Astro.props.eclipses.map((e) => partesData(e.data_gregoriana)[0]);
-const {
-  eclipses,
-  inicio = Math.floor(Math.min(...anos) / 100) * 100,
-  fim = Math.ceil(Math.max(...anos) / 100) * 100,
-} = Astro.props;
-const amplitude = fim - inicio;
+const { eclipses } = Astro.props;
 
-/** Posicao horizontal em percentagem, ao dia.
- *
- * O limite superior e o proprio ano do ultimo eclipse, e por isso um eclipse de
- * junho desse ano cairia uns decimos alem dos cem por cento e sairia da pista.
- * Trava-se aqui, em vez de alargar a escala um seculo inteiro so para o acomodar
- * e deixar o fim da linha vazio, como se faltassem dados. */
-function posicao(iso: string): number {
-  const [ano, mes, dia] = partesData(iso);
-  const fraccao = (mes - 1) / 12 + (dia - 1) / 365;
-  return Math.min(99.8, ((ano + fraccao - inicio) / amplitude) * 100);
+const porAno = new Map<number, EntradaIndice[]>();
+for (const eclipse of eclipses) {
+  const ano = partesData(eclipse.data_gregoriana)[0];
+  const lista = porAno.get(ano);
+  if (lista) lista.push(eclipse);
+  else porAno.set(ano, [eclipse]);
 }
 
-const marcas = eclipses.map((eclipse) => {
-  const { principal } = dataVigente(eclipse);
-  return {
-    eclipse,
-    esquerda: posicao(eclipse.data_gregoriana),
-    // A altura da marca le-se como profundidade do eclipse: 0,2 quase nao se
-    // ve, 1,0 chega ao topo.
-    altura: Math.max(18, Math.min(100, eclipse.pt.magnitude_max * 100)),
-    rotulo: `${dataPorExtenso(principal)}, ${NOMES_TIPO[
-      eclipse.tipo
-    ].toLowerCase()}, magnitude ${magnitude(eclipse.pt.magnitude_max)}`,
-  };
-});
+const anos = [...porAno.keys()];
+const primeiroSeculo = Math.floor(Math.min(...anos) / 100) * 100;
+const ultimoSeculo = Math.floor(Math.max(...anos) / 100) * 100;
 
-// Meio seculo entre marcas chega para seiscentos anos; para mil, so os seculos
-// cabem sem os rotulos se atropelarem.
-const passoDaEscala = amplitude > 700 ? 100 : 50;
-const escalas: number[] = [];
-for (let ano = inicio; ano <= fim; ano += passoDaEscala) escalas.push(ano);
+const seculos: number[] = [];
+for (let ano = primeiroSeculo; ano <= ultimoSeculo; ano += 100) seculos.push(ano);
+
+const decadas = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+/** O eclipse que da a cor ao ano: o mais fundo visto de Portugal. */
+function maisFundo(lista: EntradaIndice[]): EntradaIndice {
+  return lista.reduce((a, b) =>
+    b.pt.magnitude_max > a.pt.magnitude_max ? b : a,
+  );
+}
+
+function titulo(ano: number, lista: EntradaIndice[]): string {
+  const contagem =
+    lista.length === 1
+      ? t("inicio.seculo_um")
+      : t("inicio.seculo_varios", { total: lista.length });
+  const chefe = maisFundo(lista);
+  return `${ano}: ${contagem}, ${NOMES_TIPO[chefe.tipo].toLowerCase()} de magnitude ${formatarMagnitude(chefe.pt.magnitude_max)}`;
+}
+
+const tipos: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
 ---
 
 <figure class="linha-temporal">
   <figcaption class="discreto">{t("inicio.linha_temporal_ajuda")}</figcaption>
-  <div class="pista" aria-hidden="true">
+
+  <div class="envolvente-grelha">
+    <div
+      class="grelha-anos"
+      aria-hidden="true"
+      data-contagem-um={t("inicio.seculo_um")}
+      data-contagem-varios={t("inicio.seculo_varios")}
+    >
+      <span class="canto"></span>
+      {decadas.map((decada) => <span class="decada">{decada}</span>)}
+
+      {
+        seculos.map((seculo) => (
+          <>
+            <span class="rotulo">{seculo}</span>
+            {Array.from({ length: 100 }, (_, desvio) => {
+              const ano = seculo + desvio;
+              const lista = porAno.get(ano);
+              if (!lista) return <i class="ano"></i>;
+              const chefe = maisFundo(lista);
+              return (
+                <a
+                  class:list={[
+                    "ano",
+                    "com-eclipse",
+                    `tipo-${chefe.tipo}`,
+                    `nivel-${nivelDeMagnitude(chefe.pt.magnitude_max)}`,
+                  ]}
+                  data-ano={ano}
+                  href={urlEclipse(chefe.id)}
+                  title={titulo(ano, lista)}
+                  tabindex="-1"
+                />
+              );
+            })}
+          </>
+        ))
+      }
+    </div>
+  </div>
+
+  <ul class="legenda discreto">
     {
-      marcas.map(({ eclipse, esquerda, altura, rotulo }) => (
-        <a
-          class:list={["marca-eclipse", `tipo-${eclipse.tipo}`]}
-          href={urlEclipse(eclipse.id)}
-          title={rotulo}
-          tabindex="-1"
-          style={`left:${esquerda.toFixed(3)}%;height:${altura.toFixed(1)}%`}
-          {...atributosFiltro(eclipse)}
-        />
+      tipos.map((tipo) => (
+        <li>
+          <i class:list={["amostra", `tipo-${tipo}`, "nivel-4"]} />
+          {NOMES_TIPO[tipo]}
+        </li>
       ))
     }
-  </div>
-  <div class="escala" aria-hidden="true">
-    {
-      escalas.map((ano) => (
-        <span
-          class:list={["ano", ano % 100 !== 0 && "meio-seculo"]}
-          style={`left:${(((ano - inicio) / amplitude) * 100).toFixed(3)}%`}
-        >
-          {ano}
-        </span>
-      ))
-    }
-  </div>
+    <li class="escala">
+      {t("inicio.legenda_intensidade")}
+      {[1, 2, 3, 4].map((nivel) => (
+        <i class:list={["amostra", "tipo-total", `nivel-${nivel}`]} />
+      ))}
+    </li>
+  </ul>
 </figure>
 
 <style>
@@ -96,65 +136,101 @@ for (let ano = inicio; ano <= fim; ano += passoDaEscala) escalas.push(ano);
   }
 
   .linha-temporal figcaption {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
   }
 
-  .pista {
-    position: relative;
-    height: 6rem;
-    background: var(--fundo-caixa);
-    border: 1px solid var(--linha);
-    border-radius: var(--raio);
+  /* Em ecras estreitos a grelha nao encolhe abaixo do legivel: rola. */
+  .envolvente-grelha {
+    overflow-x: auto;
+    padding-bottom: 0.3rem;
   }
 
-  .marca-eclipse {
-    position: absolute;
-    bottom: 0;
-    width: 3px;
-    margin-left: -1.5px;
-    background: currentcolor;
-    border-radius: 1px;
-    opacity: 0.75;
+  .grelha-anos {
+    display: grid;
+    grid-template-columns: auto repeat(100, minmax(0.34rem, 1fr));
+    gap: 2px;
+    align-items: center;
+    min-width: 40rem;
   }
 
-  .marca-eclipse:hover {
-    opacity: 1;
-    width: 5px;
-    margin-left: -2.5px;
-  }
-
-  .marca-eclipse[hidden] {
-    display: none;
-  }
-
-  .escala {
-    position: relative;
-    height: 1.5rem;
-    margin-top: 0.25rem;
-    font-size: 0.75rem;
+  .rotulo,
+  .decada {
+    font-size: 0.7rem;
     color: var(--texto-suave);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .rotulo {
+    padding-right: 0.4rem;
+    text-align: right;
+  }
+
+  /* Um rotulo por decada, na primeira coluna de cada dez. */
+  .decada {
+    grid-column: span 10;
+    padding-bottom: 0.2rem;
   }
 
   .ano {
-    position: absolute;
-    transform: translateX(-50%);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Em ecra estreito os rotulos de meio seculo colidiriam uns com os outros. */
-  @media (max-width: 40rem) {
-    .meio-seculo {
-      display: none;
-    }
-  }
-
-  .ano::before {
-    content: "";
-    position: absolute;
-    top: -0.35rem;
-    left: 50%;
-    width: 1px;
-    height: 0.3rem;
+    aspect-ratio: 1;
+    border-radius: 1.5px;
     background: var(--linha);
+    opacity: 0.45;
+  }
+
+  .com-eclipse {
+    background: currentcolor;
+    opacity: 1;
+  }
+
+  .com-eclipse.nivel-1 {
+    opacity: 0.34;
+  }
+  .com-eclipse.nivel-2 {
+    opacity: 0.56;
+  }
+  .com-eclipse.nivel-3 {
+    opacity: 0.78;
+  }
+
+  .com-eclipse:hover {
+    outline: 2px solid var(--texto);
+    outline-offset: 1px;
+    opacity: 1;
+  }
+
+  /* Filtrado: o ano continua la, mas apagado como um ano sem eclipse. */
+  .com-eclipse.apagado {
+    background: var(--linha);
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    list-style: none;
+    margin: 0.7rem 0 0;
+    padding: 0;
+    font-size: 0.85rem;
+  }
+
+  .legenda li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .amostra {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 1.5px;
+    background: currentcolor;
+  }
+
+  .escala {
+    margin-left: auto;
   }
 </style>

@@ -93,3 +93,18 @@ export function numeroRomano(valor: number): string {
   }
   return saida;
 }
+
+/** Em que escalao de profundidade cai uma magnitude, de 1 a 4.
+ *
+ * Serve para dar cor a grelha da linha temporal: quatro degraus chegam para se
+ * ver a olho a diferenca entre um eclipse que mal se nota e um que escurece o
+ * dia, e mais degraus so fariam ruido. Os cortes estao onde a experiencia muda:
+ * abaixo de 0,4 e preciso saber que ha eclipse para dar por ele, acima de 0,95 a
+ * luz ja e outra.
+ */
+export function nivelDeMagnitude(magnitude: number): 1 | 2 | 3 | 4 {
+  if (magnitude < 0.4) return 1;
+  if (magnitude < 0.7) return 2;
+  if (magnitude < 0.95) return 3;
+  return 4;
+}

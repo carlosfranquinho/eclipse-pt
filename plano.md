@@ -464,10 +464,12 @@ Registo do que mudou em relação ao plano acima, por decisão tomada durante a
 execução. O resto do documento fica como estava, que é o seu valor: o que se
 combinou antes de começar.
 
-**Intervalo alargado para 1500-2500.** Eram seiscentos anos, passam a mil. O canon
-da NASA cobre até 3000, por isso não houve nada a inventar: `ingest_canon.py`
-passou a descarregar também as páginas do catálogo de 2101 a 2500 e o filtro
-mudou de ano. O catálogo passou de 277 para 472 eclipses.
+**Intervalo alargado para 1500-2499.** Eram seiscentos anos, passam a mil certos.
+O canon da NASA cobre até 3000, por isso não houve nada a inventar:
+`ingest_canon.py` passou a descarregar também as páginas do catálogo até 2500 e o
+filtro mudou de ano. O catálogo passou de 277 para 471 eclipses. O fim é o último
+ano do século XXV e não o primeiro do XXVI, para não haver no catálogo um século
+com um ano só lá dentro.
 
 A metade futura vale o que valer o ΔT com que foi calculada. O canon publica uma
 extrapolação, e é com ela que se calcula; até ao fim do século XXI o desvio não
@@ -481,3 +483,16 @@ linha temporal, que eles filtram. O catálogo deixou de ser uma tabela corrida e
 passou a um acordeão por século, com o século actual aberto por omissão: mil anos
 numa lista única não se leem. Os filtros escondem os séculos que ficam vazios e
 abrem os que têm alguma coisa.
+
+**Linha temporal em grelha.** A fita de marcas servia para seiscentos anos e
+deixou de servir para mil: as marcas encostavam-se e o que se via era uma mancha.
+Passou a uma grelha de um quadrado por ano e uma linha por século, à maneira do
+calendário de contribuições do GitHub. A cor diz o tipo do eclipse mais fundo do
+ano e a intensidade diz quanto do Sol chegou a ser tapado. Os anos sem eclipse
+ficam apagados, o que torna visíveis os intervalos secos, que a fita escondia.
+
+**As etiquetas dizem o que se viu daqui.** Um eclipse total no mundo pode não
+passar de parcial visto de Portugal, e é o segundo dado que interessa a quem está
+cá. A etiqueta passou a trazer as duas coisas: o tipo do eclipse e, quando
+diferem, o que dele se viu no território onde foi mais fundo. Acontece em 356 dos
+471 eclipses do catálogo. O índice leve ganhou o campo `pt.tipo_local` para isso.

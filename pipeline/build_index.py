@@ -172,9 +172,9 @@ def main() -> int:
         juliana = cal.jd_para_civil(eclipse["jd"], gregoriano=False)
         vigente = cal.calendario_vigente(eclipse["jd"])
 
-        magnitude_global = max(
-            t.get("magnitude_max", 0.0) for t in por_territorio.values()
-        )
+        visiveis = [t for t in por_territorio.values() if t["visivel"]]
+        mais_fundo = max(visiveis, key=lambda t: t["magnitude_max"])
+        magnitude_global = mais_fundo["magnitude_max"]
         tem_faixa = any(t.get("faixa_central") for t in por_territorio.values())
 
         indice.append(
@@ -196,6 +196,11 @@ def main() -> int:
                 ).iso_hora(),
                 "pt": {
                     "magnitude_max": round(magnitude_global, 4),
+                    # O tipo do eclipse e o que ele foi no mundo; este e o que
+                    # foi visto daqui, onde foi mais fundo. Um total pode nao
+                    # passar de parcial em Portugal, e e isso que interessa a
+                    # quem esta ca.
+                    "tipo_local": mais_fundo["tipo_local"],
                     "faixa_central": tem_faixa,
                     "territorios_visiveis": [
                         nome for nome, t in por_territorio.items() if t["visivel"]
@@ -223,6 +228,17 @@ def main() -> int:
     caminho = SAIDA / "eclipses-index.json"
     caminho.write_text(json.dumps(leve, ensure_ascii=False, separators=(",", ":")))
     print(f"\ngravado {caminho.name}: {len(leve)} eclipses, {caminho.stat().st_size / 1e3:.0f} kB")
+
+    # Pastas de eclipses que sairam do intervalo, ou que deixaram de ser
+    # visiveis, ficariam para tras a ocupar o repositorio e a ser publicadas sem
+    # nada que lhes aponte. Vao-se embora com o indice que as deixou de referir.
+    conhecidos = {e["id"] for e in indice}
+    for pasta in sorted(SAIDA.iterdir()):
+        if pasta.is_dir() and pasta.name not in conhecidos:
+            for ficheiro in pasta.iterdir():
+                ficheiro.unlink()
+            pasta.rmdir()
+            print(f"removida a pasta orfa {pasta.name}")
 
     # Detalhe por eclipse, incluindo os elementos besselianos para o browser.
     for eclipse in indice:

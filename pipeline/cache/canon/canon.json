@@ -3,7 +3,7 @@
  "fonte": "https://raw.githubusercontent.com/gmiller123456/FiveMillenniumCanonOfSolarEclipses-Besselian-Elements/main/FiveMillenniumCanonOfSolarEclipsesExtra.json",
  "intervalo": [
   1500,
-  2500
+  2499
  ],
  "eclipses": [
   {
@@ -157678,138 +157678,6 @@
     "az_sol": 253.8,
     "largura_faixa_km": 0.0,
     "duracao_s": 0.0
-   }
-  },
-  {
-   "ano": 2500,
-   "mes": 3,
-   "dia": 1,
-   "jd": 2634226.094,
-   "tipo": "hibrido",
-   "tipo_canon": "H",
-   "saros": 138,
-   "lunacao": 6186,
-   "gamma": 0.9038,
-   "magnitude_canon": 1.0026,
-   "delta_t_s": 1456.6,
-   "elementos": {
-    "t0_td": 14.0,
-    "x": [
-     -0.39109,
-     0.5354076,
-     -9.3e-06,
-     -8e-06
-    ],
-    "y": [
-     0.826321,
-     0.1602914,
-     -3.5e-06,
-     -2.3e-06
-    ],
-    "d": [
-     -7.4161301,
-     0.015485,
-     2e-06,
-     0.0
-    ],
-    "mu": [
-     27.12216,
-     15.00321,
-     0.0,
-     0.0
-    ],
-    "l1": [
-     0.547401,
-     0.0001149,
-     -1.2e-05,
-     0.0
-    ],
-    "l2": [
-     0.001257,
-     0.0001144,
-     -1.2e-05,
-     0.0
-    ],
-    "tan_f1": 0.004727,
-    "tan_f2": 0.0047034,
-    "k1": 0.272488,
-    "k2": 0.272281
-   },
-   "eclipse_maior": {
-    "instante_td_h": 14.246388888888887,
-    "instante_ut_h": 13.841666666666667,
-    "lat": 53.9,
-    "lon": -50.7,
-    "alt_sol": 24.9,
-    "az_sol": 151.3,
-    "largura_faixa_km": 21.0,
-    "duracao_s": 12.0
-   }
-  },
-  {
-   "ano": 2500,
-   "mes": 8,
-   "dia": 26,
-   "jd": 2634403.672,
-   "tipo": "anular",
-   "tipo_canon": "A",
-   "saros": 143,
-   "lunacao": 6192,
-   "gamma": -0.8296,
-   "magnitude_canon": 0.9518,
-   "delta_t_s": 1458.7,
-   "elementos": {
-    "t0_td": 4.0,
-    "x": [
-     -0.288851,
-     0.4954674,
-     6e-06,
-     -5.8e-06
-    ],
-    "y": [
-     -0.780943,
-     -0.1366607,
-     -2.84e-05,
-     1.5e-06
-    ],
-    "d": [
-     10.2477398,
-     -0.014116,
-     -2e-06,
-     0.0
-    ],
-    "mu": [
-     239.356766,
-     15.00427,
-     0.0,
-     0.0
-    ],
-    "l1": [
-     0.562606,
-     -7.1e-05,
-     -1e-05,
-     0.0
-    ],
-    "l2": [
-     0.016387,
-     -7.06e-05,
-     -1e-05,
-     0.0
-    ],
-    "tan_f1": 0.0046201,
-    "tan_f2": 0.0045971,
-    "k1": 0.272488,
-    "k2": 0.272281
-   },
-   "eclipse_maior": {
-    "instante_td_h": 4.137777777777778,
-    "instante_ut_h": 3.7325,
-    "lat": -43.8,
-    "lon": 106.9,
-    "alt_sol": 33.6,
-    "az_sol": 21.1,
-    "largura_faixa_km": 313.1,
-    "duracao_s": 293.0
    }
   }
  ]

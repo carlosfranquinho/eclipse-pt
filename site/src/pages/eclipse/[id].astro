@@ -80,7 +80,7 @@ const abertura = eclipse.texto_gerado
 
   <h1>{cabecalho}</h1>
   <p class="datas">
-    <EtiquetaTipo tipo={eclipse.tipo} />
+    <EtiquetaTipo tipo={eclipse.tipo} tipoLocal={eclipse.pt.tipo_local} />
     <span>
       {dataPorExtenso(principal)}{" "}
       {

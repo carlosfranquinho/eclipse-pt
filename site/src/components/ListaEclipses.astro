@@ -107,7 +107,7 @@ const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
                       )}
                     </th>
                     <td>
-                      <EtiquetaTipo tipo={eclipse.tipo} />
+                      <EtiquetaTipo tipo={eclipse.tipo} tipoLocal={eclipse.pt.tipo_local} />
                     </td>
                     <td class="numero">{magnitude(eclipse.pt.magnitude_max)}</td>
                     <td>

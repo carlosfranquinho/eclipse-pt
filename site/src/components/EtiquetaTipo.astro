@@ -1,12 +1,53 @@
 ---
-import { NOMES_TIPO } from "../lib/formatacao";
-import type { TipoEclipse } from "../lib/tipos";
+/** O tipo do eclipse, e o que dele se viu de Portugal.
+ *
+ * As duas coisas nem sempre coincidem, e a diferenca e a informacao mais util
+ * que a etiqueta pode dar a quem esta ca: o eclipse de 2 de agosto de 2027 e
+ * total, mas de Portugal ve-se parcial. A etiqueta diz o tipo do eclipse, que e
+ * o nome por que ele e conhecido, e ao lado diz o que ca se viu quando for
+ * outra coisa.
+ *
+ * Quando os dois coincidem nao se acrescenta nada: repetir "total, total em
+ * Portugal" so gastaria a atencao de quem le.
+ */
+import { t } from "../i18n";
+import { NOMES_TIPO, NOMES_TIPO_LOCAL } from "../lib/formatacao";
+import type { TipoEclipse, TipoLocal } from "../lib/tipos";
 
 interface Props {
   tipo: TipoEclipse;
+  /** O que se viu de Portugal, onde o eclipse foi mais fundo. */
+  tipoLocal?: TipoLocal;
 }
 
-const { tipo } = Astro.props;
+const { tipo, tipoLocal } = Astro.props;
+const diferente = tipoLocal !== undefined && tipoLocal !== tipo;
 ---
 
-<span class:list={["etiqueta", `tipo-${tipo}`]}>{NOMES_TIPO[tipo]}</span>
+<span class="etiqueta-tipo">
+  <span class:list={["etiqueta", `tipo-${tipo}`]}>{NOMES_TIPO[tipo]}</span>
+  {
+    diferente && (
+      <span class:list={["local", `tipo-${tipoLocal}`]}>
+        {t("lista.tipo_em_portugal", {
+          tipo: NOMES_TIPO_LOCAL[tipoLocal!].toLowerCase(),
+        })}
+      </span>
+    )
+  }
+</span>
+
+<style>
+  .etiqueta-tipo {
+    display: inline-flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.4rem;
+  }
+
+  .local {
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+</style>

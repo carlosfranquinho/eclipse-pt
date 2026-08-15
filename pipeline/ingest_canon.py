@@ -49,14 +49,16 @@ LINHA_CATALOGO = re.compile(
     r"\d{2}:\d{2}:\d{2}\s+(-?\d+)\s+(-?\d+)\s+(\d+)\s+"
 )
 
-# Intervalo do projeto, em anos gregorianos prolepticos: mil anos.
+# Intervalo do projeto, em anos gregorianos prolepticos: mil anos certos, de
+# 1500 a 2499. O fim e o ultimo ano do seculo XXV e nao o primeiro do XXVI, para
+# nao haver um seculo no catalogo com um ano so dentro.
 #
 # A metade futura vale o que valer o DeltaT com que foi calculada. Ate ao fim do
 # seculo XXI a extrapolacao e boa; a partir dai o erro cresce depressa e desloca
 # a faixa em dezenas de quilometros, ainda que nao mude o dia nem a magnitude em
 # terra. O canon e a fonte, e o que ele publica e o que aqui se guarda.
 ANO_INICIO = 1500
-ANO_FIM = 2500
+ANO_FIM = 2499
 
 # O canon usa uma letra por tipo de eclipse.
 TIPOS = {"T": "total", "A": "anular", "H": "hibrido", "P": "parcial"}

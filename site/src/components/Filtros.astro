@@ -113,6 +113,10 @@ const intervalos = periodos(eclipses);
 <p id="sem-resultados" class="nota" hidden>{t("filtros.sem_resultados")}</p>
 
 <script>
+  import { NOMES_TIPO, magnitude as formatarMagnitude } from "../lib/formatacao";
+  import { nivelDeMagnitude } from "../lib/filtros";
+  import type { TipoEclipse } from "../lib/tipos";
+
   const forma = document.getElementById("filtros") as HTMLFormElement | null;
   const contagem = document.getElementById("contagem-filtros");
   const semResultados = document.getElementById("sem-resultados");
@@ -138,6 +142,68 @@ const intervalos = periodos(eclipses);
     );
     const contarUm = catalogo?.dataset.contagemUm ?? "1";
     const contarVarios = catalogo?.dataset.contagemVarios ?? "{total}";
+
+    // A grelha da linha temporal tem um quadrado por ano, e nao um por eclipse:
+    // a cor de cada quadrado vem do eclipse mais fundo que ali sobreviver ao
+    // filtro. Sai daqui e nao do proprio componente porque so aqui se sabe o que
+    // esta a passar.
+    const grelha = document.querySelector<HTMLElement>(".grelha-anos");
+    const celulas = new Map<string, HTMLAnchorElement>();
+    for (const celula of grelha?.querySelectorAll<HTMLAnchorElement>(
+      ".com-eclipse[data-ano]",
+    ) ?? []) {
+      celulas.set(celula.dataset.ano!, celula);
+    }
+
+    interface AnoNaGrelha {
+      quantos: number;
+      tipo: string;
+      magnitude: number;
+      destino: string;
+    }
+
+    function pintarGrelha(linhas: HTMLElement[]) {
+      const porAno = new Map<string, AnoNaGrelha>();
+      for (const linha of linhas) {
+        const ano = linha.dataset.ano;
+        if (!ano) continue;
+        const magnitude = Number(linha.dataset.magnitude ?? 0);
+        const anterior = porAno.get(ano);
+        if (!anterior) {
+          porAno.set(ano, {
+            quantos: 1,
+            tipo: linha.dataset.tipo ?? "parcial",
+            magnitude,
+            destino: linha.querySelector("a")?.getAttribute("href") ?? "",
+          });
+        } else {
+          anterior.quantos += 1;
+          if (magnitude > anterior.magnitude) {
+            anterior.magnitude = magnitude;
+            anterior.tipo = linha.dataset.tipo ?? anterior.tipo;
+            anterior.destino =
+              linha.querySelector("a")?.getAttribute("href") ?? anterior.destino;
+          }
+        }
+      }
+
+      for (const [ano, celula] of celulas) {
+        const dados = porAno.get(ano);
+        if (!dados) {
+          celula.className = "ano com-eclipse apagado";
+          celula.removeAttribute("title");
+          continue;
+        }
+        celula.className = `ano com-eclipse tipo-${dados.tipo} nivel-${nivelDeMagnitude(dados.magnitude)}`;
+        if (dados.destino) celula.href = dados.destino;
+        const contagem =
+          dados.quantos === 1
+            ? contarUm
+            : contarVarios.replace("{total}", String(dados.quantos));
+        const nome = NOMES_TIPO[dados.tipo as TipoEclipse] ?? dados.tipo;
+        celula.title = `${ano}: ${contagem}, ${nome.toLowerCase()} de magnitude ${formatarMagnitude(dados.magnitude)}`;
+      }
+    }
 
     function arrumarSeculos(comFiltro: boolean) {
       for (const seculo of seculos) {
@@ -184,6 +250,7 @@ const intervalos = periodos(eclipses);
       const quando = String(dados.get("quando") ?? "todos");
 
       const visiveis = new Set<string>();
+      const linhasVisiveis: HTMLElement[] = [];
       for (const elemento of elementos) {
         const d = elemento.dataset;
         const territoriosDoEclipse = (d.territorios ?? "").split(" ");
@@ -202,8 +269,13 @@ const intervalos = periodos(eclipses);
               : (d.data ?? "") < hoje));
 
         elemento.hidden = !passa;
-        if (passa && d.eclipse) visiveis.add(d.eclipse);
+        if (passa && d.eclipse) {
+          visiveis.add(d.eclipse);
+          linhasVisiveis.push(elemento);
+        }
       }
+
+      pintarGrelha(linhasVisiveis);
 
       arrumarSeculos(visiveis.size < total);
 

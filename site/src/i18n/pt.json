@@ -1,6 +1,6 @@
 {
   "site.titulo": "Eclipses Solares em Portugal",
-  "site.descricao": "Catálogo dos eclipses solares visíveis em Portugal entre 1500 e 2500, com as circunstâncias locais calculadas a partir dos elementos besselianos do canon da NASA.",
+  "site.descricao": "Catálogo dos eclipses solares visíveis em Portugal entre 1500 e 2499, com as circunstâncias locais calculadas a partir dos elementos besselianos do canon da NASA.",
   "site.saltar_para_conteudo": "Saltar para o conteúdo",
 
   "nav.catalogo": "Catálogo",
@@ -20,7 +20,8 @@
   "inicio.proximos_ajuda": "Os próximos eclipses visíveis de Portugal.",
   "inicio.proximos_vazio": "Não há eclipses futuros no catálogo.",
   "inicio.linha_temporal": "Linha temporal",
-  "inicio.linha_temporal_ajuda": "Cada marca é um eclipse, colocada no seu ano e colorida pelo tipo. As marcas seguem os filtros.",
+  "inicio.linha_temporal_ajuda": "Um quadrado por ano, uma linha por século. A cor diz o tipo do eclipse mais fundo desse ano e a intensidade diz quanto do Sol chegou a ser tapado. Os anos apagados são anos sem eclipse visível de Portugal.",
+  "inicio.legenda_intensidade": "Mais fundo:",
   "inicio.catalogo": "Catálogo",
   "inicio.catalogo_ajuda": "Por século. Abra o que quiser ver; os filtros acima escondem os séculos que ficarem sem nada.",
   "inicio.seculo": "Século {romano}",
@@ -48,6 +49,7 @@
   "lista.territorios": "Territórios",
   "lista.saros": "Saros",
   "lista.faixa_central": "Faixa central",
+  "lista.tipo_em_portugal": "{tipo} em Portugal",
   "lista.sim": "Sim",
   "lista.nao": "Não",
 

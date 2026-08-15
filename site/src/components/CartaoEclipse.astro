@@ -22,7 +22,7 @@ const territorios = eclipse.pt.territorios_visiveis
 ---
 
 <article class="caixa cartao">
-  <EtiquetaTipo tipo={eclipse.tipo} />
+  <EtiquetaTipo tipo={eclipse.tipo} tipoLocal={eclipse.pt.tipo_local} />
   <h3>
     <a href={urlEclipse(eclipse.id)}>{dataPorExtenso(principal)}</a>
   </h3>
