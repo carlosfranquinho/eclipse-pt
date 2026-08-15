@@ -499,8 +499,15 @@ diferem, o que dele se viu no território onde foi mais fundo. Acontece em 356 d
 
 **Isomagnitudes em zonas sombreadas.** Eram curvas de nivel, passam a areas: a
 mesma sombra da faixa de totalidade, a esbater-se para fora. Cada feicao e a
-zona entre dois niveis, recortada pelo contorno do territorio com uma margem de
-mar, e o mapa da-lhe tanto mais cor quanto mais fundo o eclipse for la dentro.
+zona entre dois niveis, e o mapa da-lhe tanto mais cor quanto mais fundo o
+eclipse for la dentro.
+
+As zonas desenham-se de uma vez sobre a caixa toda do mapa, mar incluido, e saem
+do ecra por todos os lados. Chegaram a ser recortadas pelo contorno dos
+territorios, e era pior: uma mancha que se interrompia na costa e recomecava
+noutra ilha obrigava o leitor a reconstrui-la de cabeca. Uma grelha unica sobre
+a caixa do mapa, mais grossa, custa menos do que tres grelhas finas e um recorte
+pela costa.
 
 Ao faze-lo apareceu um defeito que as curvas ja tinham: nos eclipses ao nascer e
 ao por do Sol, o maximo geometrico da-se com o Sol ainda abaixo do horizonte, e

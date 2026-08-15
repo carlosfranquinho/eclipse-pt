@@ -210,8 +210,8 @@ class TestCartografia:
         e aqui que se ve.
 
         As zonas nem sempre sao aneis encaixados: quando o eclipse so aprofunda
-        para la da caixa do territorio, saem faixas paralelas cortadas pela
-        moldura. O que se mantem sempre e que nao se sobrepoem.
+        para la da caixa do mapa, saem faixas paralelas cortadas pela moldura. O
+        que se mantem sempre e que nao se sobrepoem.
         """
         for entrada in indice[:: max(1, len(indice) // 20)]:
             caminho = DADOS / entrada["id"] / "isomag.geojson"
@@ -222,7 +222,7 @@ class TestCartografia:
             el = b.Elementos.de_dict(dados["elementos"], dados["delta_t_s"])
             zonas = json.loads(caminho.read_text())
 
-            por_territorio: dict[str, list] = {}
+            zonas_do_eclipse: list = []
             for feicao in zonas["features"]:
                 assert feicao["geometry"]["type"] in ("Polygon", "MultiPolygon")
                 propriedades = feicao["properties"]
@@ -248,22 +248,21 @@ class TestCartografia:
                     f" a {propriedades['ate']} a magnitude e {magnitude:.4f}"
                 )
 
-                por_territorio.setdefault(propriedades["territorio"], []).append(
-                    (propriedades["de"], forma)
-                )
+                zonas_do_eclipse.append((propriedades["de"], forma))
 
-            for territorio, lista in por_territorio.items():
-                lista.sort(key=lambda par: par[0])
-                for (_, fora), (nivel, dentro) in zip(lista, lista[1:]):
-                    # Duas zonas seguidas partilham a fronteira, e a
-                    # simplificacao mexe-lhe uns metros para cada lado. O que
-                    # nao pode haver e sobreposicao a serio, por isso mede-se a
-                    # largura media da lasca e nao a sua area: uma orla de umas
-                    # centenas de metros e o esperado, uma regiao contada duas
-                    # vezes teria a largura da propria regiao.
-                    lasca = fora.intersection(dentro).area
-                    largura = lasca / min(fora.length, dentro.length)
-                    assert largura < LARGURA_MAXIMA_DA_ORLA, (
-                        f"{entrada['id']} em {territorio}: a zona de {nivel}"
-                        f" sobrepoe-se a de fora numa orla de {largura:.4f} graus"
-                    )
+            zonas_do_eclipse.sort(key=lambda par: par[0])
+            for (_, fora), (nivel, dentro) in zip(
+                zonas_do_eclipse, zonas_do_eclipse[1:]
+            ):
+                # Duas zonas seguidas partilham a fronteira, e a simplificacao
+                # mexe-lhe uns metros para cada lado. O que nao pode haver e
+                # sobreposicao a serio, por isso mede-se a largura media da
+                # lasca e nao a sua area: uma orla de umas centenas de metros e
+                # o esperado, uma regiao contada duas vezes teria a largura da
+                # propria regiao.
+                lasca = fora.intersection(dentro).area
+                largura = lasca / min(fora.length, dentro.length)
+                assert largura < LARGURA_MAXIMA_DA_ORLA, (
+                    f"{entrada['id']}: a zona de {nivel} sobrepoe-se a de fora"
+                    f" numa orla de {largura:.4f} graus"
+                )

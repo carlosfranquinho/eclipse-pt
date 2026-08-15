@@ -30,13 +30,23 @@ DADOS = RAIZ / "site" / "public" / "data"
 # a linha central chegar ao mapa inteira em vez de aparecer cortada a meio.
 JANELA = {"lat_min": 25.0, "lat_max": 50.0, "lon_min": -40.0, "lon_max": 5.0}
 
-# Caixas por territorio, para as isomagnitudes terem resolucao util em cada um
-# sem se calcular uma grelha enorme sobre o oceano que os separa.
+# Caixas por territorio. Servem para saber onde procurar a faixa, nao para
+# desenhar as zonas de magnitude, que sao calculadas de uma vez sobre a caixa
+# toda do mapa.
 CAIXAS = {
     "continente": (36.0, 43.0, -10.5, -5.5),
     "acores": (36.0, 40.5, -32.0, -24.0),
     "madeira": (29.5, 33.8, -18.0, -15.0),
 }
+
+# A caixa sobre a qual se desenham as zonas de magnitude: o pais todo, com o
+# Atlantico pelo meio, e uma margem larga a volta.
+#
+# A margem nao e decorativa. O mapa abre enquadrado no pais inteiro, e as zonas
+# tem de sair do ecra por todos os lados: se acabassem a vista, via-se a aresta
+# da caixa em vez do fim natural da sombra. Se um dia o enquadramento inicial do
+# mapa crescer (site/src/lib/territorios.ts), esta caixa tem de crescer com ele.
+CAIXA_DO_MAPA = (30.0, 45.0, -34.5, -3.5)
 
 # Fronteiras das zonas de igual magnitude. Cada par de valores seguidos e uma
 # zona sombreada no mapa; a ultima vai do 0,99 ao fim, que num total chega a
@@ -53,12 +63,7 @@ LIMITE_SUPERIOR_ISOMAGNITUDE = 2.0
 # Tolerancia de simplificacao dos poligonos de isomagnitude, em graus. Cerca de
 # um quilometro: as curvas sao suaves a escala de um pais e sem isto os ficheiros
 # triplicavam sem nada mudar no ecra.
-TOLERANCIA_ISOMAGNITUDE = 0.01
-
-# Margem de mar a volta da costa, em graus, com que se recortam as zonas de
-# magnitude. Uns vinte quilometros: o suficiente para a sombra nao acabar
-# encostada a linha de costa e para nao aparecer a aresta da caixa de calculo.
-MARGEM_DE_MAR = 0.2
+TOLERANCIA_ISOMAGNITUDE = 0.02
 
 # Abaixo desta largura, desenhar a faixa como poligono seria uma mentira visual:
 # a escala do mapa, um poligono de um quilometro e mais fino que o traco. Nesses
@@ -66,9 +71,15 @@ MARGEM_DE_MAR = 0.2
 LARGURA_MINIMA_POLIGONO_KM = 2.0
 
 PASSO_LINHA_CENTRAL_S = 20.0
-# Quatro quilometros. As isomagnitudes sao curvas suaves a escala de um pais;
-# uma grelha mais fina multiplicava o custo sem mudar o desenho.
-PASSO_GRELHA_ISOMAGNITUDE = 0.04
+# Sete quilometros. As zonas de magnitude sao manchas suaves a escala de um
+# oceano; uma grelha mais fina multiplicava o custo sem mudar o que se ve.
+PASSO_GRELHA_ISOMAGNITUDE = 0.06
+
+# De quantos em quantos pontos da grelha se faz o varrimento temporal completo.
+# O instante de maximo varia devagar no espaco, por isso basta procura-lo de
+# oitenta em oitenta quilometros e deixar o Newton afinar o resto. Sem isto, o
+# varrimento sobre a grelha inteira era o custo dominante do pipeline.
+PASSO_DA_SONDA = 8
 
 
 def _na_janela(lat: float, lon: float) -> bool:
@@ -308,104 +319,75 @@ def _larguras_relevantes(perfil: list[dict]) -> dict:
     }
 
 
-@lru_cache(maxsize=1)
-def _terra() -> dict:
-    """O contorno de cada territorio, folgado, para recortar as zonas.
-
-    Sem isto as zonas acabavam a direito, na aresta da caixa em que foram
-    calculadas, e o mapa mostrava um rectangulo sombreado com um canto no meio do
-    Atlantico. Recortadas pela terra, com uma margem de mar a volta, leem-se como
-    o que sao: a sombra sobre o pais.
-    """
-    caminho = RAIZ / "site" / "public" / "geo" / "territorios.geojson"
-    if not caminho.exists():
-        raise SystemExit(f"{caminho} em falta. Correr build_geo.py antes.")
-    dados = json.loads(caminho.read_text())
-    # A forma de recorte e grosseira de proposito. Recortar pela costa ao
-    # pormenor punha na sombra todos os vertices da linha de costa, e os
-    # ficheiros passavam de tres para trinta megabytes sem nada mudar no ecra:
-    # por baixo de uma mancha translucida, uma ria nao se distingue de uma baia.
-    return {
-        f["properties"]["territorio"]: shape(f["geometry"])
-        .buffer(MARGEM_DE_MAR)
-        .simplify(MARGEM_DE_MAR / 4)
-        for f in dados["features"]
-    }
-
-
 def isomagnitudes(el: b.Elementos) -> list[dict]:
-    """Zonas de igual magnitude, por territorio.
+    """Zonas de igual magnitude sobre a caixa toda do mapa.
 
     Sao areas e nao curvas: a leitura pretendida e a de uma sombra que vai
     escurecendo para dentro, a mesma ideia da faixa de totalidade, e nao a de um
-    mapa topografico. Cada feicao e a zona entre dois niveis, e o mapa da-lhe
-    tanto mais cor quanto mais fundo for o eclipse la dentro.
+    mapa topografico.
 
-    Calculam-se sobre a caixa inteira, incluindo mar, para as zonas saírem
-    continuas. Recortar a terra deixaria-as a acabar abruptamente na costa.
+    Desenham-se de uma vez sobre o mar e sobre a terra, do Corvo a fronteira, e
+    saem do ecra por todos os lados. E o que as torna legiveis: uma zona que se
+    interrompesse na costa e recomecasse noutra ilha obrigava o leitor a
+    reconstruir a mancha de cabeca, e nao havia como seguir uma faixa da terra
+    para o mar. Sai tambem mais barato do que recortar cada uma pelo contorno
+    dos territorios.
     """
-    feicoes = []
+    lat_min, lat_max, lon_min, lon_max = CAIXA_DO_MAPA
+    lats = np.arange(lat_min, lat_max, PASSO_GRELHA_ISOMAGNITUDE)
+    lons = np.arange(lon_min, lon_max, PASSO_GRELHA_ISOMAGNITUDE)
+    malha_lat, malha_lon = np.meshgrid(lats, lons, indexing="ij")
+
+    # O instante de maximo procura-se a serio numa grelha grossa e afina-se com
+    # Newton em todos os pontos. Dar ao Newton um palpite a oitenta quilometros
+    # de distancia chega: o instante varia devagar no espaco.
+    sonda = b.instante_maximo_em_pontos(
+        el,
+        malha_lat[::PASSO_DA_SONDA, ::PASSO_DA_SONDA],
+        malha_lon[::PASSO_DA_SONDA, ::PASSO_DA_SONDA],
+    )
+    palpite = np.repeat(
+        np.repeat(sonda, PASSO_DA_SONDA, axis=0), PASSO_DA_SONDA, axis=1
+    )[: malha_lat.shape[0], : malha_lat.shape[1]]
+
+    instantes = b.instante_maximo_em_pontos(
+        el, malha_lat, malha_lon, t_inicial=palpite
+    )
+    # A maior magnitude que ali se chegou a ver, e nao a do instante de maximo:
+    # nos eclipses ao nascer ou ao por do Sol as duas coisas nao sao a mesma.
+    magnitudes = b.magnitude_maxima_visivel(el, instantes, malha_lat, malha_lon)
+
+    if magnitudes.max() < NIVEIS_ISOMAGNITUDE[0]:
+        return []
+
     fronteiras = [*NIVEIS_ISOMAGNITUDE, LIMITE_SUPERIOR_ISOMAGNITUDE]
+    gerador = contour_generator(
+        x=lons, y=lats, z=magnitudes, fill_type="OuterOffset"
+    )
 
-    for territorio, (lat_min, lat_max, lon_min, lon_max) in CAIXAS.items():
-        lats = np.arange(lat_min, lat_max, PASSO_GRELHA_ISOMAGNITUDE)
-        lons = np.arange(lon_min, lon_max, PASSO_GRELHA_ISOMAGNITUDE)
-
-        # Sondagem no centro da caixa para localizar o instante do maximo. Poupa
-        # o varrimento temporal sobre a grelha inteira, que domina o custo.
-        centro_lat = (lat_min + lat_max) / 2
-        centro_lon = (lon_min + lon_max) / 2
-        t_sonda = float(
-            b.instante_maximo_em_pontos(el, np.array([centro_lat]), np.array([centro_lon]))[0]
-        )
-        sonda = b.magnitude_em(el, t_sonda, centro_lat, centro_lon)
-        if float(sonda["separacao"]) - float(sonda["l1_obs"]) > 0.4:
+    feicoes = []
+    for inferior, superior in zip(fronteiras, fronteiras[1:]):
+        if magnitudes.max() <= inferior:
             continue
 
-        malha_lat, malha_lon = np.meshgrid(lats, lons, indexing="ij")
-        instantes = b.instante_maximo_em_pontos(
-            el, malha_lat, malha_lon, t_inicial=t_sonda
-        )
-        # A maior magnitude que ali se chegou a ver, e nao a do instante de
-        # maximo: nos eclipses ao nascer ou ao por do Sol as duas coisas nao sao
-        # a mesma, e o mapa ficava com um degrau a dizer que nao se viu nada.
-        magnitudes = b.magnitude_maxima_visivel(el, instantes, malha_lat, malha_lon)
-
-        if magnitudes.max() < NIVEIS_ISOMAGNITUDE[0]:
+        zona = _zona_entre(gerador, inferior, superior)
+        if zona is None:
             continue
 
-        gerador = contour_generator(
-            x=lons, y=lats, z=magnitudes, fill_type="OuterOffset"
+        feicoes.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    # `magnitude` continua a ser o limite inferior, que e por
+                    # onde a zona se identifica e se ordena.
+                    "magnitude": inferior,
+                    "de": inferior,
+                    "ate": superior,
+                    "percentagem": round(inferior * 100, 1),
+                },
+                "geometry": mapping(zona),
+            }
         )
-        for inferior, superior in zip(fronteiras, fronteiras[1:]):
-            if magnitudes.max() <= inferior:
-                continue
-
-            zona = _zona_entre(gerador, inferior, superior)
-            if zona is None:
-                continue
-
-            zona = zona.intersection(_terra()[territorio]).simplify(
-                TOLERANCIA_ISOMAGNITUDE, preserve_topology=True
-            )
-            if zona.is_empty:
-                continue
-
-            feicoes.append(
-                {
-                    "type": "Feature",
-                    "properties": {
-                        # `magnitude` continua a ser o limite inferior, que e por
-                        # onde a zona se identifica e se ordena.
-                        "magnitude": inferior,
-                        "de": inferior,
-                        "ate": superior,
-                        "percentagem": round(inferior * 100, 1),
-                        "territorio": territorio,
-                    },
-                    "geometry": mapping(zona),
-                }
-            )
     return feicoes
 
 
