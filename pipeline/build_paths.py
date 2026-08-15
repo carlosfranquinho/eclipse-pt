@@ -38,11 +38,16 @@ CAIXAS = {
     "madeira": (29.5, 33.8, -18.0, -15.0),
 }
 
-# Fronteiras das faixas de igual magnitude. Cada par de valores seguidos e uma
+# Fronteiras das zonas de igual magnitude. Cada par de valores seguidos e uma
 # zona sombreada no mapa; a ultima vai do 0,99 ao fim, que num total chega a
 # passar de 1. Sao mais apertadas junto ao 1 porque e ai que a diferenca se ve:
-# entre 0,2 e 0,4 o dia e o mesmo, entre 0,95 e 0,99 nao e.
-NIVEIS_ISOMAGNITUDE = [0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99]
+# entre 0,2 e 0,5 o dia e o mesmo, entre 0,95 e 0,99 nao e.
+#
+# Cinco zonas e nao sete: o mapa distingue-as pela transparencia de uma so cor, e
+# a olho nao se separam mais do que meia duzia de tons da mesma cor. Com sete, a
+# escala deixava de servir para o que serve, que e reconhecer no mapa a zona a
+# que cada tom corresponde.
+NIVEIS_ISOMAGNITUDE = [0.2, 0.5, 0.8, 0.95, 0.99]
 LIMITE_SUPERIOR_ISOMAGNITUDE = 2.0
 
 # Tolerancia de simplificacao dos poligonos de isomagnitude, em graus. Cerca de

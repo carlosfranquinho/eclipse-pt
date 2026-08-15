@@ -112,6 +112,8 @@
   "mapa.concelhos_atravessados": "Concelhos atravessados",
   "mapa.fundo_osm": "Fundo de terreno (OpenStreetMap)",
   "mapa.enquadrar": "Enquadrar",
+  "mapa.enquadrar_tudo": "Todo o país",
+  "mapa.faixa_curta": "Faixa central",
   "mapa.a_carregar": "A carregar o mapa",
   "mapa.sem_javascript": "O mapa precisa de JavaScript. Os números da ficha estão todos acima, em texto.",
   "mapa.erro": "Não foi possível carregar o mapa.",

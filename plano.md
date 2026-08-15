@@ -516,3 +516,16 @@ tambem no tamanho do quadrado.
 **Acordeao exclusivo.** Abrir um seculo fecha o anterior, pelo atributo `name`
 dos `details`, sem JavaScript. Com filtro, abre-se o primeiro seculo que tenha
 resultados.
+
+**O mapa abre no pais todo e nao sai de la.** Abria no continente, e os eclipses
+que so se veem dos Acores ficavam fora do ecra ate alguem carregar num botao.
+Passa a abrir com o continente e as ilhas a vista, e o enquadramento inicial
+passa a ser o chao: da-se para aproximar, nao para afastar nem para arrastar
+para fora do pais.
+
+**A escala das zonas de magnitude.** Sete tons da mesma cor nao se distinguem a
+olho, e uma escala que nao se consegue casar com o mapa nao serve de nada.
+Passaram a cinco zonas com degraus largos, a faixa de totalidade passou a ser o
+tom cheio da escala, e as amostras da legenda passaram a ser pintadas como o mapa
+as pinta: a mesma cor, a mesma opacidade, sobre a mesma cor de terra. A tabela
+que as define vive num sitio so, `src/lib/isomagnitudes.ts`.

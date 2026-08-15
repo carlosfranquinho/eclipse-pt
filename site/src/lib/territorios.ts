@@ -17,6 +17,32 @@ export const CAIXAS: Record<Territorio, [number, number, number, number]> = {
   madeira: [-17.4, 32.3, -16.2, 33.2],
 };
 
+/** A caixa que apanha o pais todo, ilhas incluidas, com uma margem de mar.
+ *
+ * E por aqui que o mapa abre e e daqui que nao sai: ha sempre eclipses que se
+ * veem so de uma ponta do territorio, e abrir no continente escondia-os. Duas
+ * mil e quinhentas milhas de Atlantico entre o Corvo e Vila Real de Santo
+ * Antonio dao um mapa largo, mas e o pais que ele mostra. */
+export const CAIXA_DE_PORTUGAL: [number, number, number, number] = (() => {
+  const caixas = TERRITORIOS.map((territorio) => CAIXAS[territorio]);
+  const margem = 0.6;
+  return [
+    Math.min(...caixas.map((c) => c[0])) - margem,
+    Math.min(...caixas.map((c) => c[1])) - margem,
+    Math.max(...caixas.map((c) => c[2])) + margem,
+    Math.max(...caixas.map((c) => c[3])) + margem,
+  ];
+})();
+
+/** Ate onde o mapa deixa arrastar e afastar. Uma folga a volta da caixa do
+ * pais: mais do que isto so mostraria oceano e a costa de Africa. */
+export const LIMITES_DO_MAPA: [number, number, number, number] = [
+  CAIXA_DE_PORTUGAL[0] - 2,
+  CAIXA_DE_PORTUGAL[1] - 2,
+  CAIXA_DE_PORTUGAL[2] + 2,
+  CAIXA_DE_PORTUGAL[3] + 2,
+];
+
 /** A que territorio pertence um ponto, para efeitos de hora legal.
  *
  * As tres caixas nao se tocam, e no mar em volta de cada uma vale o fuso desse
