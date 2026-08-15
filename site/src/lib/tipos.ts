@@ -58,6 +58,16 @@ export interface ResumoPortugal {
   territorios_visiveis: Territorio[];
 }
 
+/** O catalogo no seu conjunto, tal como o pipeline o descreve em
+ * `data/catalogo.json`. */
+export interface Catalogo {
+  /** Primeiro e ultimo ano percorridos pelo pipeline. */
+  intervalo: [number, number];
+  total: number;
+  com_faixa_central: number;
+  com_dados_pesados: number;
+}
+
 export interface EntradaIndice {
   id: string;
   data_gregoriana: string;

@@ -6,6 +6,7 @@
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import type {
+  Catalogo,
   Eclipse,
   EntradaIndice,
   MetadadosFaixa,
@@ -31,19 +32,19 @@ export function indice(): EntradaIndice[] {
   return cacheIndice;
 }
 
-/** O intervalo que o catalogo cobre, em anos.
+/** Os metadados do catalogo, escritos pelo pipeline.
  *
- * O inicio arredonda-se ao seculo: o pipeline procurou desde 1500, mesmo que o
- * primeiro eclipse visivel de Portugal so apareca em 1502, e e o intervalo
- * procurado que interessa a quem le. O fim e o ultimo eclipse, que e tambem o
- * fim do intervalo procurado. */
+ * O intervalo que aqui vem e o que o pipeline percorreu, e nao o dos eclipses
+ * que encontrou. A diferenca importa nas pontas: procurou-se ate 2499 e o ultimo
+ * eclipse visivel de Portugal e de 2498, mas o que se anuncia a quem le e o
+ * ambito, nao o resultado. */
+export function catalogo(): Catalogo {
+  return ler<Catalogo>("catalogo.json");
+}
+
 export function intervaloDoCatalogo(): { inicio: number; fim: number } {
-  const lista = indice();
-  const ano = (iso: string) => Number(iso.slice(0, 4));
-  return {
-    inicio: Math.floor(ano(lista[0]!.data_gregoriana) / 100) * 100,
-    fim: ano(lista[lista.length - 1]!.data_gregoriana),
-  };
+  const [inicio, fim] = catalogo().intervalo;
+  return { inicio, fim };
 }
 
 export function eclipse(id: string): Eclipse {

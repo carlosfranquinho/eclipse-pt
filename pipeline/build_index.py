@@ -214,6 +214,22 @@ def main() -> int:
 
     SAIDA.mkdir(parents=True, exist_ok=True)
 
+    # Metadados do catalogo. O que o site nao consegue deduzir dos eclipses que
+    # tem: o intervalo procurado. Sem isto, a pagina inicial anunciava o ano do
+    # ultimo eclipse encontrado, 2498, em vez do ano ate onde se procurou.
+    (SAIDA / "catalogo.json").write_text(
+        json.dumps(
+            {
+                "intervalo": dados["intervalo"],
+                "total": len(indice),
+                "com_faixa_central": sum(1 for e in indice if e["pt"]["faixa_central"]),
+                "com_dados_pesados": sum(1 for e in indice if e["dados_pesados"]),
+            },
+            ensure_ascii=False,
+            indent=1,
+        )
+    )
+
     # Indice leve, para a lista e os filtros da pagina inicial.
     leve = [
         {
