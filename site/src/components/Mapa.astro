@@ -366,10 +366,24 @@ const camadas = [
 
   let maplibre: Biblioteca;
 
+  /** Importa um modulo por URL sem passar pelo empacotador.
+   *
+   * A biblioteca vive em `public/` e tem de ser servida tal e qual. Um
+   * `import()` escrito a vista e reescrito pelo Vite, que em desenvolvimento lhe
+   * acrescenta `?import` ao URL e depois se recusa a servir por essa via um
+   * ficheiro de `public/`: o mapa funcionava na build e nao funcionava no
+   * `npm run dev`. Dentro de um `Function` o import fica opaco ao empacotador, e
+   * o browser pede o URL tal como esta.
+   *
+   * Nota para quem vier a por cabecalhos de seguranca: isto precisa de
+   * `script-src 'unsafe-eval'`. A alternativa e empacotar o MapLibre e corrigir
+   * o caminho do worker por configuracao. */
+  const importarPorUrl = new Function("url", "return import(url)") as (
+    url: string,
+  ) => Promise<unknown>;
+
   if (contentor && configuracao) {
-    maplibre = (await import(
-      /* @vite-ignore */ configuracao.biblioteca
-    )) as Biblioteca;
+    maplibre = (await importarPorUrl(configuracao.biblioteca)) as Biblioteca;
     iniciar(contentor, configuracao);
   }
 
