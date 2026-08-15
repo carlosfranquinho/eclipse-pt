@@ -1,15 +1,11 @@
 ---
 import Base from "../layouts/Base.astro";
 import { t } from "../i18n";
-import { indice } from "../lib/dados";
-import { anoDe } from "../lib/formatacao";
+import { indice, intervaloDoCatalogo } from "../lib/dados";
 
 const eclipses = indice();
 const pesados = eclipses.filter((e) => e.dados_pesados).length;
-const intervalo = {
-  inicio: anoDe(eclipses[0]!.data_gregoriana),
-  fim: anoDe(eclipses[eclipses.length - 1]!.data_gregoriana),
-};
+const intervalo = intervaloDoCatalogo();
 ---
 
 <Base titulo={t("sobre.titulo")} seccao="sobre">

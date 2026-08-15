@@ -5,15 +5,11 @@ import Filtros from "../components/Filtros.astro";
 import LinhaTemporal from "../components/LinhaTemporal.astro";
 import ListaEclipses from "../components/ListaEclipses.astro";
 import { t } from "../i18n";
-import { indice } from "../lib/dados";
-import { anoDe } from "../lib/formatacao";
+import { indice, intervaloDoCatalogo } from "../lib/dados";
 
 const eclipses = indice();
 const comFaixa = eclipses.filter((e) => e.pt.faixa_central).length;
-const intervalo = {
-  inicio: anoDe(eclipses[0]!.data_gregoriana),
-  fim: anoDe(eclipses[eclipses.length - 1]!.data_gregoriana),
-};
+const intervalo = intervaloDoCatalogo();
 
 // A data da build serve so para escolher os eclipses em destaque. O filtro
 // "por observar" da lista usa a data real do browser.

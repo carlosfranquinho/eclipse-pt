@@ -31,6 +31,21 @@ export function indice(): EntradaIndice[] {
   return cacheIndice;
 }
 
+/** O intervalo que o catalogo cobre, em anos.
+ *
+ * O inicio arredonda-se ao seculo: o pipeline procurou desde 1500, mesmo que o
+ * primeiro eclipse visivel de Portugal so apareca em 1502, e e o intervalo
+ * procurado que interessa a quem le. O fim e o ultimo eclipse, que e tambem o
+ * fim do intervalo procurado. */
+export function intervaloDoCatalogo(): { inicio: number; fim: number } {
+  const lista = indice();
+  const ano = (iso: string) => Number(iso.slice(0, 4));
+  return {
+    inicio: Math.floor(ano(lista[0]!.data_gregoriana) / 100) * 100,
+    fim: ano(lista[lista.length - 1]!.data_gregoriana),
+  };
+}
+
 export function eclipse(id: string): Eclipse {
   return ler<Eclipse>(`${id}/eclipse.json`);
 }
