@@ -34,14 +34,13 @@ export const CAIXA_DE_PORTUGAL: [number, number, number, number] = (() => {
   ];
 })();
 
-/** Ate onde o mapa deixa arrastar e afastar. Uma folga a volta da caixa do
- * pais: mais do que isto so mostraria oceano e a costa de Africa. */
-export const LIMITES_DO_MAPA: [number, number, number, number] = [
-  CAIXA_DE_PORTUGAL[0] - 2,
-  CAIXA_DE_PORTUGAL[1] - 2,
-  CAIXA_DE_PORTUGAL[2] + 2,
-  CAIXA_DE_PORTUGAL[3] + 2,
-];
+/** Ate onde o mapa deixa arrastar e afastar: exactamente a caixa do pais.
+ *
+ * Sem folga nenhuma, de proposito. Com folga, a vista inicial ficava com espaco
+ * de sobra para leste e para oeste e dava para arrastar o pais de lado, o que
+ * nao serve para nada e so faz perder o enquadramento. */
+export const LIMITES_DO_MAPA: [number, number, number, number] =
+  CAIXA_DE_PORTUGAL;
 
 /** A que territorio pertence um ponto, para efeitos de hora legal.
  *

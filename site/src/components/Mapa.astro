@@ -141,6 +141,18 @@ function pontos() {
 
 const desenhavelComoArea = faixa?.desenhavel_como_area ?? false;
 
+// Os pontos que o mapa desenha, para a legenda dizer o que sao. Sem isto sao
+// tres circulos coloridos sem explicacao nenhuma.
+const temPontosDaFaixa = visiveis.some((territorio) => {
+  const dados = eclipse.territorios[territorio];
+  return dados.visivel && (dados.faixa_entrada || dados.faixa_saida);
+});
+const pontosDaLegenda = [
+  { chave: "fundo", rotulo: t("mapa.ponto_fundo") },
+  temPontosDaFaixa ? { chave: "faixa", rotulo: t("mapa.ponto_faixa") } : null,
+  { chave: "vivo", rotulo: t("mapa.ponto_vivo") },
+].filter((ponto) => ponto !== null);
+
 const configuracao = {
   biblioteca: caminho("vendor/maplibre/maplibre-gl.mjs"),
   urls: {
@@ -303,6 +315,20 @@ const camadas = [
         </fieldset>
       )
     }
+
+    <fieldset>
+      <legend>{t("mapa.pontos")}</legend>
+      <ul class="legenda">
+        {
+          pontosDaLegenda.map((ponto) => (
+            <li>
+              <span class="ponto-amostra" data-ponto={ponto.chave} />
+              {ponto.rotulo}
+            </li>
+          ))
+        }
+      </ul>
+    </fieldset>
   </div>
 </div>
 
@@ -564,18 +590,62 @@ const camadas = [
       // para afastar. Le-se depois de o mapa se enquadrar, e nao de uma conta a
       // mao, porque depende do tamanho que a caixa tiver no ecra.
       mapa.setMinZoom(mapa.getZoom());
+      travarArrastoNoEnquadramento(mapa);
       ligarControlos(mapa, config);
       ligarBaloes(mapa, config, ["pontos"]);
       ligarPontoAoVivo(mapa, config);
+      pintarLegendaDosPontos();
     });
 
     escuro.addEventListener("change", () => aplicarPaleta(mapa, config));
   }
 
+  /** No enquadramento inicial nao ha para onde arrastar, e por isso nao se
+   * arrasta.
+   *
+   * Os limites do mapa sozinhos nao chegam: quando a caixa do pais nao tem
+   * exactamente a forma da janela, sobra folga num dos eixos e o mapa deixa-se
+   * levar de lado uns graus, o que so faz perder o enquadramento. Ao afastamento
+   * minimo o arrasto desliga-se; a partir do primeiro passo de aproximacao volta
+   * a ligar-se, ai ja com os limites a fazer o seu papel. */
+  function travarArrastoNoEnquadramento(mapa: Mapa) {
+    const decidir = () => {
+      const noChao = mapa.getZoom() <= mapa.getMinZoom() + 0.01;
+      if (noChao) {
+        mapa.dragPan.disable();
+        mapa.keyboard.disable();
+      } else {
+        mapa.dragPan.enable();
+        mapa.keyboard.enable();
+      }
+    };
+    decidir();
+    mapa.on("zoomend", decidir);
+  }
+
   /** Muda as cores sem reconstruir o estilo, para nao voltar a descarregar os
    * GeoJSON quando o sistema passa de claro a escuro. */
+  /** Pinta as amostras da legenda dos pontos com as cores que o mapa usa.
+   *
+   * Sai daqui e nao do CSS porque a paleta do mapa vive neste script: repeti-la
+   * na folha de estilo era garantir que um dia as duas deixavam de bater certo. */
+  function pintarLegendaDosPontos() {
+    const cores = paleta();
+    const cor: Record<string, string> = {
+      fundo: cores.ponto,
+      faixa: cores.central,
+      vivo: cores.vivo,
+    };
+    document
+      .querySelectorAll<HTMLElement>("[data-ponto]")
+      .forEach((amostra) => {
+        amostra.style.background = cor[amostra.dataset.ponto ?? ""] ?? "";
+      });
+  }
+
   function aplicarPaleta(mapa: Mapa, config: Configuracao) {
     const cores = paleta();
+    pintarLegendaDosPontos();
     const definir = (camada: string, propriedade: string, valor: unknown) => {
       if (mapa.getLayer(camada)) {
         mapa.setPaintProperty(camada, propriedade as never, valor as never);
@@ -1162,6 +1232,17 @@ const camadas = [
   /* As amostras da legenda repetem o que o mapa faz: o mesmo roxo, com a mesma
      opacidade, sobre a mesma cor de terra. Estas duas cores sao as da paleta do
      mapa, que vive no script deste ficheiro; se uma mudar, muda a outra. */
+  /* Os pontos do mapa sao circulos com um halo branco por baixo. A amostra
+     repete-o para se reconhecer o que se ve no mapa. */
+  .ponto-amostra {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    background: var(--texto-suave);
+    flex: none;
+  }
+
   .amostra {
     position: relative;
     width: 1.4rem;
