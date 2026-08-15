@@ -53,9 +53,9 @@ O `npm test` corre no Node, sem dependências de teste: o Node 24 executa TypeSc
 directamente e traz o `node --test`.
 
 O site é publicado numa página de projeto do GitHub Pages, por isso a build usa
-`base: "/eclipse-pt/"`. Para servir noutro caminho, definir `SITE_BASE` (por exemplo
-`SITE_BASE=/ npm run build`); nenhum URL interno é escrito à mão, todos passam por
-`caminho()` em `site/src/lib/urls.ts`.
+`base: "/eclipse-pt/"` por omissão. Para servir noutro caminho, definir `SITE_BASE`
+(por exemplo `SITE_BASE=/ npm run build`); nenhum URL interno é escrito à mão,
+todos passam por `caminho()` em `site/src/lib/urls.ts`.
 
 O `npm run build` e o `npm run dev` copiam antes o MapLibre de `node_modules` para
 `site/public/vendor/maplibre/`, que fica fora do git. A biblioteca tem de ser servida
@@ -84,6 +84,41 @@ testes, os dois em `site/test/`:
   comparada e por isso se verifica por coerência: nos quatro contactos os discos
   têm de estar tangentes, a magnitude desenhada tem de ser a calculada, e a Lua
   tem de atravessar o Sol de oeste para leste.
+
+## Publicação
+
+`.github/workflows/publicar.yml` publica no GitHub Pages a cada alteração de
+`main`, em três passos: verificar (`npm test` e `npm run check`), construir e
+publicar. O pipeline de dados não corre no CI: os ficheiros que produz estão
+commitados, e por isso a publicação é só frontend, sem Python e sem descarregar
+nada. Quem mexer no pipeline corre-o localmente, corre o `pytest` e commita o
+resultado.
+
+O endereço não está escrito em lado nenhum. O `actions/configure-pages` diz qual
+é, e a build recebe-o em `SITE_URL` e `SITE_BASE`; mudar o repositório de sítio
+não obriga a corrigir nada. Para a primeira publicação é preciso pôr o Pages do
+repositório em "GitHub Actions" nas definições.
+
+O site traz `sitemap.xml` e `robots.txt`, ambos gerados do próprio catálogo.
+
+## Segurança e acessibilidade
+
+As páginas levam uma política de segurança de conteúdo em `meta`, porque o GitHub
+Pages não deixa definir cabeçalhos. Só se permite o que o site precisa: o
+`openstreetmap.org` para o fundo de terreno opcional do mapa, e mais nada de fora.
+As duas permissões largas estão explicadas em `site/src/layouts/Base.astro`, e
+uma delas, o `unsafe-eval`, existe por causa da forma como o MapLibre tem de ser
+carregado.
+
+Nenhum script vai embutido no HTML, o que é o que permite manter a política
+apertada. O `assetsInlineLimit: 0` no `astro.config.mjs` garante isso, e sem ele
+o Astro embutiria os scripts pequenos e a política bloqueá-los-ia em silêncio.
+
+Com JavaScript desligado, as fichas mantêm o texto, as tabelas e o desenho do Sol;
+o que não funciona sem ele esconde-se, em vez de ficar à vista sem reagir.
+
+O Lighthouse dá 100 em desempenho, acessibilidade, boas práticas e SEO na página
+inicial, numa ficha e na página sobre.
 
 ## Conteúdo escrito à mão
 

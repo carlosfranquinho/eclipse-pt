@@ -1,0 +1,100 @@
+# Publica o site no GitHub Pages a cada alteracao de `main`.
+#
+# O pipeline de dados nao corre aqui. Os ficheiros que ele produz estao
+# commitados em `site/public/data/`, e por isso a publicacao e so frontend:
+# rapida, sem Python, sem descarregar a CAOP nem o canon da NASA. Quem mexer no
+# pipeline corre-o em casa e commita o resultado, e os testes de Python correm
+# tambem em casa; o que este workflow garante e o que o browser precisa de ver.
+#
+# O endereco nao esta escrito em lado nenhum: o `configure-pages` diz qual e, e
+# o Astro constroi com ele. Muda-se o repositorio de sitio e nao ha nada para
+# corrigir.
+
+name: Publicar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicacao de cada vez, e sem cancelar a que estiver a meio: o Pages nao
+# gosta de ficar com um envio pelo caminho.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    name: Verificar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Instalar
+        working-directory: site
+        run: npm ci
+
+      # O nucleo em TypeScript contra os casos de ouro do Python, e contra as
+      # fichas publicadas. E a rede que apanha uma divergencia entre os dois
+      # motores antes de ela chegar ao site.
+      - name: Testes
+        working-directory: site
+        run: npm test
+
+      - name: Tipos e diagnosticos
+        working-directory: site
+        run: npm run check
+
+  construir:
+    name: Construir
+    needs: verificar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Configurar o Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Instalar
+        working-directory: site
+        run: npm ci
+
+      - name: Construir
+        working-directory: site
+        env:
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          SITE_BASE: ${{ steps.pages.outputs.base_path }}
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  publicar:
+    name: Publicar
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacao.outputs.page_url }}
+    steps:
+      - id: publicacao
+        uses: actions/deploy-pages@v4
