@@ -109,6 +109,13 @@ export function duracao(segundos: number): string {
   return resto === 0 ? `${minutos} min` : `${minutos} min ${resto} s`;
 }
 
+/** "40,862° N, 8,617° O". Em portugues o ponto cardeal e Oeste, nao West. */
+export function coordenadas(lat: number, lon: number): string {
+  const latitude = `${numero(Math.abs(lat), 3)}° ${lat >= 0 ? "N" : "S"}`;
+  const longitude = `${numero(Math.abs(lon), 3)}° ${lon >= 0 ? "E" : "O"}`;
+  return `${latitude}, ${longitude}`;
+}
+
 export const NOMES_TERRITORIO: Record<Territorio, string> = {
   continente: "Continente",
   acores: "Açores",

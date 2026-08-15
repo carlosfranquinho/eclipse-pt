@@ -20,9 +20,11 @@ origem está em [`plano-inicial.md`](plano-inicial.md), mantido para registo.
 uv venv && uv pip install -e ".[dev]"
 uv run python pipeline/ingest_canon.py           # elementos besselianos e Saros
 uv run python pipeline/build_geo.py              # CAOP para GeoJSON
+uv run python pipeline/build_lugares.py          # um ponto por concelho, para a pesquisa
 uv run python pipeline/build_index.py            # índice de eclipses visíveis
 uv run python pipeline/build_paths.py            # faixas e isomagnitudes
 uv run python pipeline/crossed_municipalities.py # concelhos atravessados
+uv run python pipeline/gerar_golden.py           # casos de ouro para o teste do browser
 uv run pytest                                    # validação completa
 ```
 
@@ -36,9 +38,13 @@ cd site
 npm ci
 npm run dev          # servidor de desenvolvimento
 npm run check        # tipos e diagnósticos do Astro
+npm test             # o núcleo em TypeScript contra o Python e contra as fichas
 npm run build        # build estática para site/dist/
 npm run preview      # servir a build, com o mesmo caminho base da publicação
 ```
+
+O `npm test` corre no Node, sem dependências de teste: o Node 24 executa TypeScript
+directamente e traz o `node --test`.
 
 O site é publicado numa página de projeto do GitHub Pages, por isso a build usa
 `base: "/eclipse-pt/"`. Para servir noutro caminho, definir `SITE_BASE` (por exemplo
@@ -49,6 +55,25 @@ O `npm run build` e o `npm run dev` copiam antes o MapLibre de `node_modules` pa
 `site/public/vendor/maplibre/`, que fica fora do git. A biblioteca tem de ser servida
 como está e importada em tempo de execução: empacotá-la parte o caminho do worker que
 ela própria calcula, e o mapa ficaria sem fontes de dados, sem dar erro.
+
+## Cálculo ao vivo, e como se garante que bate certo
+
+Cada ficha leva os elementos besselianos do seu eclipse, cerca de trinta números.
+Com eles o browser calcula em qualquer ponto do mapa a magnitude, a obscuração, os
+quatro contactos, a hora local no sistema em vigor à data e a altura do Sol, sem
+consultar o servidor e sem nenhuma biblioteca de astronomia. O núcleo está em
+`site/src/lib/besselian.ts` e é um porto directo de `pipeline/besselian.py`.
+
+Duas implementações da mesma matemática divergem sozinhas. Contra isso há dois
+testes, os dois em `site/test/`:
+
+- `besselian.test.ts` recalcula os casos de ouro que o Python gravou em
+  `pipeline/tests/golden/circunstancias.json` e exige concordância até ao último
+  bit. Do lado do Python, `pipeline/tests/test_golden.py` garante que esse ficheiro
+  não envelhece em relação ao código que o gerou.
+- `ficha.test.ts` fecha o circuito com os dados publicados: para os eclipses todos,
+  refaz no browser as circunstâncias no ponto que a ficha aponta e compara com os
+  números que a ficha mostra.
 
 ## Convenções do projeto
 

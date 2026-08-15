@@ -12,6 +12,10 @@ regia-se pelo seu meio-dia, e a unica hora com significado num ponto e a hora
 solar media do seu meridiano. Depois de 1912 usa-se a base de fusos horarios,
 que ja trata da hora de verao historica e do periodo de 1992 a 1996 em que o
 continente esteve na hora da Europa Central.
+
+Traz tambem a conversao entre o tempo dos elementos besselianos e o calendario,
+que e onde o canon exige mais cuidado: o dia juliano que publica esta arredondado
+e o `t0` dos elementos pode cair no dia civil seguinte.
 """
 
 from __future__ import annotations
@@ -111,6 +115,41 @@ def civil_para_jd(ano: int, mes: int, dia: float, gregoriano: bool) -> float:
 def calendario_vigente(jd: float) -> str:
     """Qual dos calendarios estava em vigor em Portugal nesse dia juliano."""
     return "gregoriano" if jd >= JD_ADOPCAO_GREGORIANO_PT else "juliano"
+
+
+def jd_maximo_td(eclipse: dict) -> float:
+    """Dia juliano, em TD, do maximo global, sem o arredondamento do canon.
+
+    O canon publica o dia juliano com tres casas decimais, o que deixa o
+    instante indeterminado em quase um minuto, mas publica tambem a data civil e
+    a hora do maximo ao segundo. Sao os dois ultimos que se usam aqui: um erro
+    de quarenta segundos nao muda a magnitude em ponto nenhum, mas apareceria
+    directamente nas horas mostradas em cada ficha.
+
+    Antes de 1582-10-15 a data civil do canon esta no calendario juliano.
+    """
+    gregoriano = eclipse["jd"] >= JD_ADOPCAO_GREGORIANO_PT
+    meia_noite = civil_para_jd(
+        eclipse["ano"], eclipse["mes"], eclipse["dia"], gregoriano=gregoriano
+    )
+    return meia_noite + eclipse["eclipse_maior"]["instante_td_h"] / 24.0
+
+
+def jd_t0_td(eclipse: dict) -> float:
+    """Dia juliano, em TD, do instante `t = 0` dos elementos besselianos.
+
+    E a ancora que liga o tempo dos polinomios ao calendario, e vai na ficha
+    para o browser poder converter os seus proprios resultados em horas sem
+    repetir esta aritmetica nem o cuidado que ela exige.
+
+    O canon arredonda `t0` para a hora inteira mais proxima do maximo, e essa
+    hora pode cair ja no dia seguinte: em 1500-05-27 o maximo e as 23h49 TD e
+    `t0` e a meia-noite a seguir. Sem o envolvimento nas doze horas, `t0` sairia
+    um dia inteiro ao lado, e as horas da ficha com ele.
+    """
+    instante = eclipse["eclipse_maior"]["instante_td_h"]
+    desvio = (instante - eclipse["elementos"]["t0_td"] + 12.0) % 24.0 - 12.0
+    return jd_maximo_td(eclipse) - desvio / 24.0
 
 
 def hora_local(jd_ut: float, lon_graus: float, territorio: str) -> dict:

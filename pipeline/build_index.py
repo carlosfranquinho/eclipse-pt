@@ -37,10 +37,7 @@ MAGNITUDE_MINIMA = 0.001
 
 def _jd_de_t(eclipse: dict, t: float) -> tuple[float, float]:
     """Dia juliano em TD e em UT, para um instante `t` em horas desde t0."""
-    elementos = eclipse["elementos"]
-    maior = eclipse["eclipse_maior"]
-    jd_t0 = eclipse["jd"] - (maior["instante_td_h"] - elementos["t0_td"]) / 24.0
-    jd_td = jd_t0 + t / 24.0
+    jd_td = cal.jd_t0_td(eclipse) + t / 24.0
     return jd_td, jd_td - eclipse["delta_t_s"] / 86400.0
 
 
@@ -171,7 +168,6 @@ def main() -> int:
         if not any(t["visivel"] for t in por_territorio.values()):
             continue
 
-        jd_td, jd_ut = _jd_de_t(eclipse, eclipse["eclipse_maior"]["instante_td_h"] - eclipse["elementos"]["t0_td"])
         gregoriana = cal.jd_para_civil(eclipse["jd"], gregoriano=True)
         juliana = cal.jd_para_civil(eclipse["jd"], gregoriano=False)
         vigente = cal.calendario_vigente(eclipse["jd"])
@@ -185,6 +181,7 @@ def main() -> int:
             {
                 "id": gregoriana.iso_data(),
                 "jd": eclipse["jd"],
+                "jd_t0_td": cal.jd_t0_td(eclipse),
                 "data_gregoriana": gregoriana.iso_data(),
                 "data_juliana": juliana.iso_data() if vigente == "juliano" else None,
                 "calendario_vigente_pt": vigente,
@@ -194,7 +191,8 @@ def main() -> int:
                 "magnitude_canon": eclipse["magnitude_canon"],
                 "delta_t_s": eclipse["delta_t_s"],
                 "maximo_global_ut": cal.jd_para_civil(
-                    eclipse["jd"] - eclipse["delta_t_s"] / 86400.0, gregoriano=True
+                    cal.jd_maximo_td(eclipse) - eclipse["delta_t_s"] / 86400.0,
+                    gregoriano=True,
                 ).iso_hora(),
                 "pt": {
                     "magnitude_max": round(magnitude_global, 4),

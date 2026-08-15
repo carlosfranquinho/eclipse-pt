@@ -425,6 +425,30 @@ def circunstancias_locais(
     }
 
 
+def circunstancias_no_ponto(
+    e: Elementos, lat_graus: float, lon_graus: float, altura_m: float = 0.0
+) -> dict[str, Any]:
+    """Circunstancias num ponto, partindo do zero e sem palpite de instante.
+
+    E o ponto de entrada para quem so tem umas coordenadas: faz o varrimento
+    grosseiro que localiza a aproximacao maxima da sombra e so depois entrega o
+    resultado a `circunstancias_locais`. Quem ja conhece a vizinhanca do maximo,
+    como o `build_index.py` a percorrer uma grelha, deve continuar a chamar
+    `circunstancias_locais` directamente com `t_inicial`, que poupa o varrimento.
+
+    Esta e a funcao que o porto TypeScript reproduz para o calculo ao vivo no
+    mapa, e a que o gerador de casos de ouro usa. As duas implementacoes tem de
+    percorrer exactamente os mesmos passos, por isso nao lhe acrescentar
+    heuristicas sem as portar tambem.
+    """
+    t_inicial = float(
+        instante_maximo_em_pontos(
+            e, np.array([lat_graus]), np.array([lon_graus]), np.array([altura_m])
+        )[0]
+    )
+    return circunstancias_locais(e, lat_graus, lon_graus, altura_m, t_inicial)
+
+
 def razao_diametros(circunstancias: dict[str, Any]) -> Any:
     """Razao entre os diametros aparentes da Lua e do Sol.
 

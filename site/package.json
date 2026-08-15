@@ -8,6 +8,7 @@
     "dev": "npm run vendor && astro dev",
     "build": "npm run vendor && astro build",
     "preview": "astro preview",
+    "test": "node --test 'test/*.test.ts'",
     "check": "npm run vendor && astro check"
   },
   "dependencies": {

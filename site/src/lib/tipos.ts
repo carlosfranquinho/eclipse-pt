@@ -81,7 +81,14 @@ export interface ElementosBesselianos {
 }
 
 export interface Eclipse extends EntradaIndice {
+  /** Dia juliano do maximo global, em TD, como o canon o publica: com tres
+   * casas decimais, ou seja indeterminado em quase um minuto. Serve para
+   * mostrar, nao para contar tempo. */
   jd: number;
+  /** Dia juliano, em TD, do instante `t = 0` dos elementos besselianos. E este
+   * o numero que converte os resultados do calculo em horas, e vem calculado
+   * pelo pipeline a partir da data e da hora que o canon publica ao segundo. */
+  jd_t0_td: number;
   gamma: number;
   magnitude_canon: number;
   delta_t_s: number;

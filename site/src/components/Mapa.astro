@@ -11,7 +11,7 @@ import {
   percentagem,
   rotuloSistemaHora,
 } from "../lib/formatacao";
-import { CAIXAS, TERRITORIOS } from "../lib/dados";
+import { CAIXAS, TERRITORIOS } from "../lib/territorios";
 import type {
   Eclipse,
   MetadadosFaixa,
@@ -142,6 +142,7 @@ const configuracao = {
   urls: {
     territorios: caminho("geo/territorios.geojson"),
     concelhos: caminho("geo/municipios.geojson"),
+    lugares: caminho("geo/lugares.json"),
     faixa: recursos.faixa ? caminho(recursos.faixa) : null,
     central: recursos.linha_central ? caminho(recursos.linha_central) : null,
     isomagnitudes: recursos.isomagnitudes ? caminho(recursos.isomagnitudes) : null,
@@ -155,8 +156,17 @@ const configuracao = {
     caop: "CAOP 2025, DGT",
     nasa: "Elementos besselianos: F. Espenak, NASA GSFC",
   },
+  // Os trinta numeros com que o browser refaz, ao vivo, o mesmo calculo que o
+  // pipeline fez para esta ficha.
+  eclipse: {
+    elementos: eclipse.elementos,
+    delta_t_s: eclipse.delta_t_s,
+    jd_t0_td: eclipse.jd_t0_td,
+  },
   textos: {
     erro: t("mapa.erro"),
+    fixado: t("ponto.fixado"),
+    semLugares: t("ponto.sem_lugares"),
   },
 };
 
@@ -181,15 +191,47 @@ const camadas = [
 ---
 
 <div class="mapa-bloco">
-  <div
-    id="mapa-eclipse"
-    class="mapa"
-    data-configuracao={JSON.stringify(configuracao)}
-    role="application"
-    aria-label={t("mapa.titulo")}
-  >
-    <p class="aviso-mapa">{t("mapa.a_carregar")}</p>
-    <noscript><p class="aviso-mapa">{t("mapa.sem_javascript")}</p></noscript>
+  <div class="coluna-mapa">
+    <div
+      id="mapa-eclipse"
+      class="mapa"
+      data-configuracao={JSON.stringify(configuracao)}
+      role="application"
+      aria-label={t("mapa.titulo")}
+    >
+      <p class="aviso-mapa">{t("mapa.a_carregar")}</p>
+      <noscript><p class="aviso-mapa">{t("mapa.sem_javascript")}</p></noscript>
+    </div>
+
+    <section class="ponto-vivo caixa so-com-js" aria-label={t("ponto.titulo")}>
+      <h3>{t("ponto.titulo")}</h3>
+      <p class="discreto" data-papel="ajuda">{t("ponto.ajuda")}</p>
+
+      <div data-papel="resultado" aria-live="off" hidden>
+        <p class="titulo-ponto"><strong data-papel="titulo"></strong></p>
+        <p class="discreto" data-papel="aviso" hidden></p>
+        <dl class="dados" data-papel="linhas"></dl>
+        <p class="discreto" data-papel="fixado" hidden></p>
+        <button type="button" data-papel="limpar" hidden>
+          {t("ponto.limpar")}
+        </button>
+      </div>
+
+      <div class="pesquisa">
+        <label for="pesquisa-lugar">{t("ponto.pesquisar")}</label>
+        <input
+          id="pesquisa-lugar"
+          type="search"
+          list="lugares-do-mapa"
+          autocomplete="off"
+          aria-describedby="pesquisa-lugar-ajuda"
+        />
+        <datalist id="lugares-do-mapa"></datalist>
+        <p class="discreto" id="pesquisa-lugar-ajuda">
+          {t("ponto.pesquisar_ajuda")} {t("ponto.pesquisar_nota")}
+        </p>
+      </div>
+    </section>
   </div>
 
   <div class="controlos so-com-js">
@@ -246,8 +288,18 @@ const camadas = [
   // So os tipos vem do pacote. A biblioteca em si e importada em tempo de
   // execucao a partir de `public/vendor/maplibre/`, porque empacota-la parte o
   // worker do MapLibre. Ver scripts/preparar-maplibre.mjs.
-  import type { LngLatBoundsLike, StyleSpecification } from "maplibre-gl";
+  import type {
+    GeoJSONSource,
+    LngLatBoundsLike,
+    StyleSpecification,
+  } from "maplibre-gl";
   import "maplibre-gl/dist/maplibre-gl.css";
+
+  import {
+    calcularPonto,
+    type EclipseCalculavel,
+    type PontoCalculado,
+  } from "../lib/circunstancias";
 
   type Biblioteca = typeof import("maplibre-gl");
   type Mapa = InstanceType<Biblioteca["Map"]>;
@@ -258,6 +310,7 @@ const camadas = [
     urls: {
       territorios: string;
       concelhos: string;
+      lugares: string;
       faixa: string | null;
       central: string | null;
       isomagnitudes: string | null;
@@ -268,8 +321,12 @@ const camadas = [
     concelhos: Record<string, Balao>;
     pontos: unknown;
     atribuicao: { caop: string; nasa: string };
-    textos: { erro: string };
+    eclipse: EclipseCalculavel;
+    textos: { erro: string; fixado: string; semLugares: string };
   };
+
+  /** Um concelho e o seu ponto de referencia, como vem de `geo/lugares.json`. */
+  type Lugar = { nome: string; lat: number; lon: number };
 
   const PALETAS = {
     claro: {
@@ -281,6 +338,7 @@ const camadas = [
       central: "#3b0764",
       atravessado: "#7c3aed",
       ponto: "#b91c1c",
+      vivo: "#0f766e",
     },
     escuro: {
       mar: "#0f1620",
@@ -291,6 +349,7 @@ const camadas = [
       central: "#ddd6fe",
       atravessado: "#c4b5fd",
       ponto: "#fca5a5",
+      vivo: "#5eead4",
     },
   };
 
@@ -456,6 +515,7 @@ const camadas = [
       contentor.querySelectorAll(".aviso-mapa").forEach((no) => no.remove());
       ligarControlos(mapa, config);
       ligarBaloes(mapa, config, ["pontos"]);
+      ligarPontoAoVivo(mapa, config);
     });
 
     escuro.addEventListener("change", () => aplicarPaleta(mapa, config));
@@ -479,6 +539,8 @@ const camadas = [
     definir("central", "line-color", cores.central);
     definir("atravessados", "fill-color", cores.atravessado);
     definir("atravessados-contorno", "line-color", cores.atravessado);
+    definir("ponto-vivo", "circle-color", cores.vivo);
+    definir("ponto-vivo", "circle-stroke-color", cores.vivo);
     definir("pontos", "circle-color", [
       "match",
       ["get", "genero"],
@@ -542,6 +604,176 @@ const camadas = [
       },
       antes,
     );
+  }
+
+  /** Calculo ao vivo: o que se viu no ponto onde esta o rato, ou no ponto fixado.
+   *
+   * O calculo em si nao custa nada, sao umas centenas de operacoes sobre os
+   * trinta coeficientes que vieram na ficha. O que se protege e o desenho: um
+   * `mousemove` dispara dezenas de vezes por segundo e nao vale a pena refazer o
+   * painel mais do que uma vez por imagem.
+   *
+   * O ponto fica fixo assim que alguem carrega no mapa. E o unico modo que serve
+   * o toque, onde nao ha rato para andar a passear, e e tambem o que permite ler
+   * os numeros com calma sem os ver mudar ao mexer o dedo. */
+  function ligarPontoAoVivo(mapa: Mapa, config: Configuracao) {
+    const painel = document.querySelector<HTMLElement>(".ponto-vivo");
+    if (!painel) return;
+
+    const parte = (papel: string) =>
+      painel.querySelector<HTMLElement>(`[data-papel="${papel}"]`)!;
+    const ajuda = parte("ajuda");
+    const resultado = parte("resultado");
+    const titulo = parte("titulo");
+    const aviso = parte("aviso");
+    const linhas = parte("linhas");
+    const notaFixado = parte("fixado");
+    const limpar = parte("limpar");
+    const pesquisa = painel.querySelector<HTMLInputElement>("#pesquisa-lugar")!;
+    const lista = painel.querySelector<HTMLDataListElement>("#lugares-do-mapa")!;
+
+    const cores = paleta();
+    mapa.addSource("ponto-vivo", { type: "geojson", data: colecaoVazia() });
+    mapa.addLayer({
+      id: "ponto-vivo",
+      type: "circle",
+      source: "ponto-vivo",
+      paint: {
+        "circle-radius": 6,
+        "circle-color": cores.vivo,
+        "circle-opacity": 0.3,
+        "circle-stroke-color": cores.vivo,
+        "circle-stroke-width": 2,
+      },
+    });
+
+    let fixado = false;
+    let pendente: { lat: number; lon: number } | null = null;
+    let agendado = false;
+
+    function marcar(lat: number, lon: number) {
+      const fonte = mapa.getSource("ponto-vivo") as GeoJSONSource | undefined;
+      fonte?.setData({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: {},
+            geometry: { type: "Point", coordinates: [lon, lat] },
+          },
+        ],
+      });
+    }
+
+    function desenhar(ponto: PontoCalculado) {
+      ajuda.hidden = true;
+      resultado.hidden = false;
+      titulo.textContent = ponto.titulo;
+      aviso.textContent = ponto.aviso ?? "";
+      aviso.hidden = ponto.aviso === null;
+
+      linhas.replaceChildren();
+      for (const linha of ponto.linhas) {
+        const rotulo = document.createElement("dt");
+        rotulo.textContent = linha.rotulo;
+        const valor = document.createElement("dd");
+        valor.textContent = linha.valor;
+        linhas.append(rotulo, valor);
+      }
+
+      notaFixado.hidden = !fixado;
+      limpar.hidden = !fixado;
+      marcar(ponto.lat, ponto.lon);
+    }
+
+    function esconder() {
+      ajuda.hidden = false;
+      resultado.hidden = true;
+      resultado.setAttribute("aria-live", "off");
+      const fonte = mapa.getSource("ponto-vivo") as GeoJSONSource | undefined;
+      fonte?.setData(colecaoVazia());
+    }
+
+    function mostrar(lat: number, lon: number, nome?: string) {
+      desenhar(calcularPonto(config.eclipse, lat, lon, nome));
+    }
+
+    function fixar(lat: number, lon: number, nome?: string) {
+      fixado = true;
+      notaFixado.textContent = config.textos.fixado;
+      // O painel so se anuncia quando o ponto esta fixo. A anunciar cada
+      // movimento do rato, um leitor de ecra falava por cima de si proprio
+      // dezenas de vezes por segundo.
+      resultado.setAttribute("aria-live", "polite");
+      mostrar(lat, lon, nome);
+    }
+
+    function agendar() {
+      if (agendado) return;
+      agendado = true;
+      requestAnimationFrame(() => {
+        agendado = false;
+        if (pendente && !fixado) mostrar(pendente.lat, pendente.lon);
+      });
+    }
+
+    mapa.on("mousemove", (evento) => {
+      if (fixado) return;
+      const posicao = evento.lngLat.wrap();
+      pendente = { lat: posicao.lat, lon: posicao.lng };
+      agendar();
+    });
+
+    mapa.on("mouseout", () => {
+      if (!fixado) esconder();
+    });
+
+    mapa.on("click", (evento) => {
+      const posicao = evento.lngLat.wrap();
+      pesquisa.value = "";
+      fixar(posicao.lat, posicao.lng);
+    });
+
+    limpar.addEventListener("click", () => {
+      fixado = false;
+      pesquisa.value = "";
+      esconder();
+    });
+
+    // A lista de concelhos so se descarrega a quem for usa-la.
+    let lugares: Lugar[] = [];
+    const carregar = async () => {
+      try {
+        const resposta = await fetch(config.urls.lugares);
+        lugares = ((await resposta.json()) as { lugares: Lugar[] }).lugares;
+        lista.replaceChildren();
+        for (const lugar of lugares) {
+          const opcao = document.createElement("option");
+          opcao.value = lugar.nome;
+          lista.append(opcao);
+        }
+      } catch (erro) {
+        console.error(config.textos.semLugares, erro);
+        pesquisa.disabled = true;
+        const ajudaPesquisa = document.getElementById("pesquisa-lugar-ajuda");
+        if (ajudaPesquisa) ajudaPesquisa.textContent = config.textos.semLugares;
+      }
+    };
+    pesquisa.addEventListener("focus", carregar, { once: true });
+
+    pesquisa.addEventListener("change", () => {
+      const escolhido = lugares.find((lugar) => lugar.nome === pesquisa.value);
+      if (!escolhido) return;
+      fixar(escolhido.lat, escolhido.lon, escolhido.nome);
+      mapa.flyTo({
+        center: [escolhido.lon, escolhido.lat],
+        zoom: Math.max(mapa.getZoom(), 8),
+      });
+    });
+  }
+
+  function colecaoVazia(): GeoJSON.FeatureCollection {
+    return { type: "FeatureCollection", features: [] };
   }
 
   const GRUPOS: Record<string, string[]> = {
@@ -703,6 +935,13 @@ const camadas = [
     }
   }
 
+  .coluna-mapa {
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+    min-width: 0;
+  }
+
   .mapa {
     position: relative;
     height: min(70vh, 34rem);
@@ -722,6 +961,80 @@ const camadas = [
     text-align: center;
     color: var(--texto-suave);
     font-size: 0.9rem;
+  }
+
+  .ponto-vivo {
+    font-size: 0.9rem;
+  }
+
+  .ponto-vivo h3 {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+  }
+
+  .ponto-vivo p {
+    margin: 0.4rem 0;
+  }
+
+  .titulo-ponto {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Duas colunas de pares rotulo e valor: sao muitas linhas, e em coluna unica
+     o painel ficava mais alto do que o mapa. */
+  .ponto-vivo .dados {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    gap: 0.15rem 0.6rem;
+    margin: 0.6rem 0;
+  }
+
+  @media (max-width: 34rem) {
+    .ponto-vivo .dados {
+      grid-template-columns: auto 1fr;
+    }
+  }
+
+  .ponto-vivo .dados dt {
+    color: var(--texto-suave);
+  }
+
+  .ponto-vivo .dados dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ponto-vivo .pesquisa {
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--linha);
+  }
+
+  .ponto-vivo label {
+    display: block;
+    font-weight: 600;
+  }
+
+  .ponto-vivo input {
+    width: min(100%, 22rem);
+    margin-top: 0.3rem;
+    padding: 0.35rem 0.5rem;
+    font: inherit;
+    color: var(--texto);
+    background: var(--fundo);
+    border: 1px solid var(--linha);
+    border-radius: 0.3rem;
+  }
+
+  .ponto-vivo button {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.3rem;
+    background: var(--fundo-suave);
+    color: var(--texto);
+    cursor: pointer;
   }
 
   .controlos {

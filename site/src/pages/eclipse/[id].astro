@@ -19,7 +19,6 @@ import {
   titulo as tituloEclipse,
 } from "../../lib/formatacao";
 import {
-  TERRITORIOS,
   eclipse as lerEclipse,
   indice,
   metadadosFaixa,
@@ -28,6 +27,7 @@ import {
   recursos as lerRecursos,
   vizinhos,
 } from "../../lib/dados";
+import { TERRITORIOS } from "../../lib/territorios";
 import { caminho, urlEclipse } from "../../lib/urls";
 
 export function getStaticPaths() {

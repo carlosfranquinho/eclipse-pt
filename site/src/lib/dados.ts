@@ -11,7 +11,6 @@ import type {
   MetadadosFaixa,
   MunicipiosAtravessados,
   Recursos,
-  Territorio,
 } from "./tipos";
 
 /** Caminho absoluto de `public/data/`, injectado pelo astro.config.mjs. */
@@ -94,13 +93,3 @@ export function vizinhos(id: string): {
     seguinte: i >= 0 && i < lista.length - 1 ? lista[i + 1]! : null,
   };
 }
-
-export const TERRITORIOS: Territorio[] = ["continente", "acores", "madeira"];
-
-/** Caixa de enquadramento por territorio, em [oeste, sul, este, norte].
- * Fixa aqui e nao calculada do GeoJSON para o mapa abrir sempre igual. */
-export const CAIXAS: Record<Territorio, [number, number, number, number]> = {
-  continente: [-9.6, 36.9, -6.1, 42.2],
-  acores: [-31.4, 36.8, -24.9, 39.9],
-  madeira: [-17.4, 32.3, -16.2, 33.2],
-};

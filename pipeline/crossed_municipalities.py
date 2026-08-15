@@ -106,11 +106,12 @@ def concelhos_atravessados(eclipse_id: str) -> dict | None:
             t_inicial=t_entrada if t_entrada is not None else 0.0,
         )
 
-        jd_t0 = dados["jd"] - (
-            dados["elementos"]["t0_td"] - dados["elementos"]["t0_td"]
-        ) / 24.0
+        # `jd_t0_td` e o instante `t = 0` dos elementos, ja calculado pelo
+        # build_index.py. Usar em vez dele o dia juliano do maximo global daria
+        # horas erradas em ate meia hora, porque o canon ancora os polinomios na
+        # hora inteira mais proxima do maximo e nao no maximo.
         jd_ut = (
-            jd_t0
+            dados["jd_t0_td"]
             + circunstancias["t_maximo_td"] / 24.0
             - dados["delta_t_s"] / 86400.0
         )
