@@ -25,6 +25,13 @@ export default defineConfig({
     define: {
       __DIR_DADOS__: JSON.stringify(dirDados),
     },
+    build: {
+      // Sem isto o Astro embute no HTML os scripts pequenos, como o dos filtros
+      // da pagina inicial. A politica de seguranca do site nao permite scripts
+      // embutidos, e o script deixaria de correr, sem erro visivel a nao ser na
+      // consola. Ver a nota sobre a politica em src/layouts/Base.astro.
+      assetsInlineLimit: 0,
+    },
   },
   i18n: {
     locales: ["pt"],

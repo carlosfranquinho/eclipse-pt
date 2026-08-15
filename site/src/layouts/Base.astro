@@ -13,6 +13,40 @@ interface Props {
 const { titulo, descricao = t("site.descricao"), seccao } = Astro.props;
 const tituloCompleto =
   titulo === t("site.titulo") ? titulo : `${titulo} | ${t("site.titulo")}`;
+
+/** Politica de seguranca de conteudo.
+ *
+ * Vai em `meta` e nao em cabecalho porque o GitHub Pages nao deixa definir
+ * cabecalhos. O que fica de fora e o `frame-ancestors`, que so funciona em
+ * cabecalho e que os browsers ignoram aqui com um aviso na consola.
+ *
+ * Duas permissoes precisam de explicacao:
+ *
+ * `script-src 'unsafe-eval'` e para o `Function` com que se importa o MapLibre
+ * de `public/`. Sem ele o empacotador reescreve o import e o mapa deixa de
+ * carregar em desenvolvimento; ver o comentario em Mapa.astro. Nao ha aqui
+ * nenhum `eval` sobre dados: o unico argumento e um caminho do proprio site.
+ *
+ * `style-src 'unsafe-inline'` e inevitavel com o MapLibre, que posiciona os
+ * controlos e os baloes escrevendo no atributo `style`, e com o Astro, que
+ * embute as folhas de estilo pequenas.
+ *
+ * O openstreetmap.org e o unico terceiro, e so entra quando alguem liga o fundo
+ * de terreno no mapa. Todo o resto do site e servido do proprio dominio. */
+const OSM = "https://tile.openstreetmap.org";
+const politicaDeSeguranca = [
+  "default-src 'self'",
+  "base-uri 'none'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: ${OSM}`,
+  `connect-src 'self' ${OSM}`,
+  "worker-src 'self' blob:",
+  "font-src 'self'",
+].join("; ");
 ---
 
 <!doctype html>
@@ -20,6 +54,9 @@ const tituloCompleto =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content={politicaDeSeguranca} />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="color-scheme" content="light dark" />
     <title>{tituloCompleto}</title>
     <meta name="description" content={descricao} />
     <meta name="generator" content={Astro.generator} />
@@ -29,10 +66,20 @@ const tituloCompleto =
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pt_PT" />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
-    {/* Marca a pagina para o CSS poder esconder o que so funciona com JS. */}
-    <script is:inline>
-      document.documentElement.classList.add("js");
-    </script>
+    <meta property="og:url" content={new URL(Astro.url.pathname, Astro.site)} />
+    {/* Esconde o que so funciona com JavaScript, quando nao ha JavaScript. Feito
+        assim e nao ao contrario, com um script a marcar a pagina, porque um
+        script embutido obrigaria a abrir a politica de seguranca aos scripts
+        embutidos todos. */}
+    <noscript>
+      <style>
+        /* O `!important` e preciso: os estilos dos componentes do Astro levam um
+           atributo no seletor e ganham por especificidade a uma classe solta. */
+        .so-com-js {
+          display: none !important;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
     <a class="saltar" href="#conteudo">{t("site.saltar_para_conteudo")}</a>

@@ -47,6 +47,8 @@ imagens:
     url: https://exemplo.org/pagina-da-imagem
     licenca: Domínio público
     alternativo: Fotografia a preto e branco do disco negro do Sol rodeado pela coroa
+    largura: 1600
+    altura: 1200
 ```
 
 **A licença é obrigatória.** Sem ela o ficheiro não passa na validação e a build
@@ -55,6 +57,17 @@ duvidosa. Se a licença não for conhecida, a imagem não entra.
 
 O `alternativo` descreve a imagem para quem não a vê. Quando falta, usa-se a
 legenda, que quase sempre chega.
+
+A `largura` e a `altura` são as dimensões em pixéis do ficheiro. São opcionais,
+mas convém dá-las: com elas o browser reserva o espaço antes de a imagem chegar e
+a página não salta a meio da leitura.
+
+## Ao remover um ficheiro
+
+O Astro guarda em `site/.astro/` o que já leu destas pastas, e apagar um ficheiro
+não chega para o tirar da build local. Depois de remover uma nota ou uma galeria,
+correr `npx astro build --force`, que limpa essa cache. Na publicação o problema
+não existe, porque o CI constrói sempre de raiz.
 
 ## Enquanto não houver conteúdo
 

@@ -289,11 +289,6 @@ th.numero {
   grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
 }
 
-/* Sem JavaScript, os filtros seriam um painel que nao filtra nada. */
-html:not(.js) .so-com-js {
-  display: none;
-}
-
 .discreto {
   color: var(--texto-suave);
   font-size: 0.9rem;

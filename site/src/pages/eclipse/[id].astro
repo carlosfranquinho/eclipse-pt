@@ -314,6 +314,8 @@ const abertura = eclipse.texto_gerado
                 <img
                   src={caminho(`imagens/${eclipse.id}/${imagem.ficheiro}`)}
                   alt={imagem.alternativo ?? imagem.legenda}
+                  width={imagem.largura}
+                  height={imagem.altura}
                   loading="lazy"
                   decoding="async"
                 />

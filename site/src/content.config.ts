@@ -51,6 +51,10 @@ const galeria = defineCollection({
           url: z.url().optional(),
           /** Obrigatoria. Sem licenca conhecida, a imagem nao entra. */
           licenca: z.string(),
+          /** Dimensoes em pixeis, para o browser reservar o espaco antes de a
+           * imagem chegar e a pagina nao saltar. Opcionais, mas recomendadas. */
+          largura: z.number().int().positive().optional(),
+          altura: z.number().int().positive().optional(),
           /** Texto alternativo, para quem nao ve a imagem. Sem ele usa-se a
            * legenda, que quase sempre chega. */
           alternativo: z.string().optional(),
