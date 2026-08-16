@@ -31,6 +31,13 @@ const familias: { valor: Familia; nome: string }[] = [
 ];
 const territorios = Object.keys(NOMES_TERRITORIO) as Territorio[];
 const intervalos = periodos(eclipses);
+
+// Quantos eclipses o controlo dos penumbrais governa, contados e nao escritos a
+// mao: o numero muda com o intervalo do catalogo.
+const lunares = eclipses.filter((e) => e.familia === "lunar");
+const penumbrais = lunares.filter(
+  (e) => e.familia === "lunar" && e.pt.tipo_local === "penumbral",
+).length;
 ---
 
 <form id="filtros" class="filtros caixa so-com-js" aria-label={t("filtros.titulo")}>
@@ -129,6 +136,13 @@ const intervalos = periodos(eclipses);
       <input type="checkbox" name="faixa" value="1" />
       {t("filtros.faixa_central")}
     </label>
+    <label>
+      <input type="checkbox" name="penumbrais" value="1" />
+      {t("filtros.penumbrais")}
+    </label>
+    <p class="ajuda discreto">
+      {t("filtros.penumbrais_ajuda", { penumbrais, lunares: lunares.length })}
+    </p>
   </div>
 
   <div class="rodape-filtros">
@@ -277,12 +291,23 @@ const intervalos = periodos(eclipses);
       }
 
       // Uma grelha inteira sem nada e ruido: se o filtro deixou de fora uma das
-      // familias, a grelha dela sai da pagina.
+      // familias, a grelha dela sai da pagina. E um tipo que ficou sem nenhum
+      // ano sai da legenda dela, para a legenda dizer o que esta no ecra e nao
+      // o que la podia estar.
+      const presentes = new Set(
+        [...porAno.values()].map((dados) => `${dados.familia}:${dados.tipo}`),
+      );
       for (const bloco of blocosDeGrelha) {
         const familia = bloco.dataset.familiaGrelha!;
-        bloco.hidden = ![...porAno.values()].some(
-          (dados) => dados.familia === familia,
+        const temAlgum = [...presentes].some((chave) =>
+          chave.startsWith(`${familia}:`),
         );
+        bloco.hidden = !temAlgum;
+        for (const item of bloco.querySelectorAll<HTMLElement>(
+          "[data-tipo-legenda]",
+        )) {
+          item.hidden = !presentes.has(`${familia}:${item.dataset.tipoLegenda}`);
+        }
       }
     }
 
@@ -313,6 +338,10 @@ const intervalos = periodos(eclipses);
         if (deveAbrir) jaAbriu = true;
       }
     }
+    // Quantos eclipses ficam a vista sem ninguem mexer em nada. Fixa-se na
+    // primeira passagem, que corre com o formulario nos valores por omissao.
+    let visiveisPorOmissao: number | null = null;
+
     const saidaMagnitude = document.getElementById(
       "valor-magnitude",
     ) as HTMLOutputElement | null;
@@ -336,6 +365,10 @@ const intervalos = periodos(eclipses);
       const intervalo = String(dados.get("intervalo") ?? "");
       const magnitudeMinima = Number(dados.get("magnitude") ?? 0);
       const soFaixa = dados.get("faixa") === "1";
+      // Quem pede o tipo "penumbral" na lista dos tipos esta a pedi-los, e seria
+      // absurdo devolver-lhe uma lista vazia por causa de uma omissao.
+      const mostrarPenumbrais =
+        dados.get("penumbrais") === "1" || tipos.includes("penumbral");
       const quando = String(dados.get("quando") ?? "todos");
 
       const visiveis = new Set<string>();
@@ -352,6 +385,7 @@ const intervalos = periodos(eclipses);
               territoriosDoEclipse.includes(territorio),
             )) &&
           (intervalo === "" || d.periodo === intervalo) &&
+          (mostrarPenumbrais || d.penumbral !== "1") &&
           Number(d.magnitude ?? 0) >= magnitudeMinima &&
           (!soFaixa || d.faixa === "1") &&
           (quando === "todos" ||
@@ -368,7 +402,12 @@ const intervalos = periodos(eclipses);
 
       pintarGrelha(linhasVisiveis);
 
-      arrumarSeculos(visiveis.size < total);
+      // O que conta como "ha filtro" e o leitor ter mexido em alguma coisa, e
+      // nao haver eclipses escondidos: os penumbrais comecam escondidos, e sem
+      // esta medida o catalogo abria logo no seculo XVI em vez de abrir naquele
+      // em que estamos.
+      if (visiveisPorOmissao === null) visiveisPorOmissao = visiveis.size;
+      arrumarSeculos(visiveis.size < visiveisPorOmissao);
 
       contagem!.textContent = modelo
         .replace("{visiveis}", String(visiveis.size))
@@ -419,6 +458,17 @@ const intervalos = periodos(eclipses);
     display: flex;
     flex-wrap: wrap;
     gap: 0.15rem 1rem;
+  }
+
+  .campo-largo {
+    display: grid;
+    gap: 0.3rem;
+    align-content: start;
+  }
+
+  .campo-largo .ajuda {
+    margin: 0.1rem 0 0;
+    font-size: 0.82rem;
   }
 
   .opcoes label,

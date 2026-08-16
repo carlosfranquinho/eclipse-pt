@@ -22,6 +22,15 @@ export function atributosFiltro(
     // umbral negativa, e o deslizador no zero deixa passar tudo.
     "data-magnitude": Math.max(0, funduraEmPortugal(eclipse)).toFixed(4),
     "data-territorios": eclipse.pt.territorios_visiveis.join(" "),
+    // Marca os eclipses em que, daqui, so a penumbra tocou a Lua. Sao setecentos
+    // e tal, e nao ha neles nada para ver: comecam escondidos, e ha um filtro
+    // proprio para os trazer de volta. O criterio e o que se viu de Portugal, e
+    // nao o tipo do eclipse no ceu: um eclipse total do outro lado do mundo, de
+    // que aqui so se apanhou a penumbra a raspar, tambem nao tem nada para ver.
+    "data-penumbral":
+      eclipse.familia === "lunar" && eclipse.pt.tipo_local === "penumbral"
+        ? "1"
+        : "0",
     // So o Sol tem faixa central. Nos lunares o campo fica a zero e o filtro
     // da faixa exclui-os, que e o que faz sentido: pedir faixa central e pedir
     // eclipses solares.

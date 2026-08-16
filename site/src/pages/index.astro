@@ -45,7 +45,9 @@ const anteriores = eclipses
     metadados.lua && (
       <p class="discreto nota-penumbrais">
         {t("inicio.nota_penumbrais", {
-          perceptiveis: metadados.lua.perceptiveis,
+          penumbrais: lunares.filter(
+            (e) => e.familia === "lunar" && e.pt.tipo_local === "penumbral",
+          ).length,
           total: metadados.lua.total,
         })}
       </p>

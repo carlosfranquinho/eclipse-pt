@@ -104,28 +104,38 @@ function titulo(ano: number, lista: EntradaCatalogo[]): string {
  * porque um quadrado de cinco pixeis nao se parte em dois sem deixar de se ver;
  * separadas, cada familia tem o seu ritmo, e a comparacao entre elas continua a
  * fazer-se de relance, linha a linha. */
+const tiposSolares: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
+const tiposLunares: TipoEclipseLunar[] = ["total", "parcial", "penumbral"];
+
 const grelhas: {
   familia: Familia;
   rotulo: string;
   prefixo: string;
   porAno: Map<number, EntradaCatalogo[]>;
+  /** Os tipos desta familia, com o nome que a legenda lhes da. */
+  tipos: { valor: string; nome: string }[];
 }[] = [
   {
     familia: "solar",
     rotulo: t("inicio.grelha_sol"),
     prefixo: "tipo",
     porAno: porAnoDe("solar"),
+    tipos: tiposSolares.map((tipo) => ({
+      valor: tipo,
+      nome: NOMES_TIPO[tipo],
+    })),
   },
   {
     familia: "lunar",
     rotulo: t("inicio.grelha_lua"),
     prefixo: "tipo-lua",
     porAno: porAnoDe("lunar"),
+    tipos: tiposLunares.map((tipo) => ({
+      valor: tipo,
+      nome: NOMES_TIPO_LUNAR[tipo],
+    })),
   },
 ];
-
-const tiposSolares: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
-const tiposLunares: TipoEclipseLunar[] = ["total", "parcial", "penumbral"];
 ---
 
 <figure class="linha-temporal">
@@ -175,34 +185,30 @@ const tiposLunares: TipoEclipseLunar[] = ["total", "parcial", "penumbral"];
             ))}
           </div>
         </div>
+
+        <ul class="legenda discreto">
+          {grelha.tipos.map((tipo) => (
+            <li data-tipo-legenda={tipo.valor}>
+              <i class:list={["amostra", `${grelha.prefixo}-${tipo.valor}`, "nivel-4"]} />
+              {tipo.nome}
+            </li>
+          ))}
+          <li class="escala">
+            {t("inicio.legenda_intensidade")}
+            {[1, 2, 3, 4].map((nivel) => (
+              <i
+                class:list={[
+                  "amostra",
+                  `${grelha.prefixo}-total`,
+                  `nivel-${nivel}`,
+                ]}
+              />
+            ))}
+          </li>
+        </ul>
       </div>
     ))
   }
-
-  <ul class="legenda discreto">
-    {
-      tiposSolares.map((tipo) => (
-        <li>
-          <i class:list={["amostra", `tipo-${tipo}`, "nivel-4"]} />
-          {NOMES_TIPO[tipo]}
-        </li>
-      ))
-    }
-    {
-      tiposLunares.map((tipo) => (
-        <li>
-          <i class:list={["amostra", `tipo-lua-${tipo}`, "nivel-4"]} />
-          {t("inicio.legenda_lunar", { tipo: NOMES_TIPO_LUNAR[tipo] })}
-        </li>
-      ))
-    }
-    <li class="escala">
-      {t("inicio.legenda_intensidade")}
-      {[1, 2, 3, 4].map((nivel) => (
-        <i class:list={["amostra", "tipo-total", `nivel-${nivel}`]} />
-      ))}
-    </li>
-  </ul>
 </figure>
 
 <style>
@@ -215,7 +221,7 @@ const tiposLunares: TipoEclipseLunar[] = ["total", "parcial", "penumbral"];
   }
 
   .familia + .familia {
-    margin-top: 0.9rem;
+    margin-top: 1.4rem;
   }
 
   .familia[hidden] {
@@ -317,7 +323,7 @@ const tiposLunares: TipoEclipseLunar[] = ["total", "parcial", "penumbral"];
     flex-wrap: wrap;
     gap: 0.3rem 1rem;
     list-style: none;
-    margin: 0.7rem 0 0;
+    margin: 0.45rem 0 0;
     padding: 0;
     font-size: 0.85rem;
   }
@@ -336,12 +342,15 @@ const tiposLunares: TipoEclipseLunar[] = ["total", "parcial", "penumbral"];
   }
 
   /* Os quadrados da escala mostram o que mostram os do calendario: o tamanho
-     e a intensidade a crescer com a profundidade. */
-  .escala .amostra {
-    background: var(--tipo-total);
-  }
-
+     e a intensidade a crescer com a profundidade. A cor e a do tipo mais fundo
+     da familia, que a classe ja trouxe. */
   .escala {
     margin-left: auto;
+  }
+
+  /* Um tipo que o filtro deixou sem nenhum ano na grelha nao tem por que
+     continuar a ocupar a legenda. */
+  .legenda li[hidden] {
+    display: none;
   }
 </style>
