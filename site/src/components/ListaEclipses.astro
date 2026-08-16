@@ -169,8 +169,12 @@ const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
 
   .seculo {
     border: 1px solid var(--linha);
-    border-radius: var(--raio);
     background: var(--fundo-caixa);
+    border-radius: var(--raio);
+    /* Sem isto, a tabela larga empurra o seculo para fora do ecra em vez de
+       rolar dentro dele: um item de grelha nao encolhe abaixo do conteudo a
+       menos que se lhe diga. */
+    min-width: 0;
   }
 
   .seculo[hidden] {
