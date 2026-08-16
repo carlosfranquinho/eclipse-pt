@@ -9,29 +9,54 @@
  *
  * Quando os dois coincidem nao se acrescenta nada: repetir "total, total em
  * Portugal" so gastaria a atencao de quem le.
+ *
+ * Serve as duas familias. As cores dos tipos lunares sao proprias, para uma
+ * grelha com Sol e Lua nao dizer a mesma coisa com a mesma cor de coisas
+ * diferentes.
  */
 import { t } from "../i18n";
-import { NOMES_TIPO, NOMES_TIPO_LOCAL } from "../lib/formatacao";
-import type { TipoEclipse, TipoLocal } from "../lib/tipos";
+import {
+  NOMES_TIPO,
+  NOMES_TIPO_LOCAL,
+  NOMES_TIPO_LOCAL_LUNAR,
+  NOMES_TIPO_LUNAR,
+} from "../lib/formatacao";
+import type {
+  Familia,
+  TipoEclipse,
+  TipoEclipseLunar,
+  TipoLocal,
+  TipoLocalLunar,
+} from "../lib/tipos";
 
 interface Props {
-  tipo: TipoEclipse;
+  familia?: Familia;
+  tipo: TipoEclipse | TipoEclipseLunar;
   /** O que se viu de Portugal, onde o eclipse foi mais fundo. */
-  tipoLocal?: TipoLocal;
+  tipoLocal?: TipoLocal | TipoLocalLunar;
 }
 
-const { tipo, tipoLocal } = Astro.props;
+const { familia = "solar", tipo, tipoLocal } = Astro.props;
+const lunar = familia === "lunar";
+const nome = lunar
+  ? NOMES_TIPO_LUNAR[tipo as TipoEclipseLunar]
+  : NOMES_TIPO[tipo as TipoEclipse];
+const nomeLocal =
+  tipoLocal === undefined
+    ? null
+    : lunar
+      ? NOMES_TIPO_LOCAL_LUNAR[tipoLocal as TipoLocalLunar]
+      : NOMES_TIPO_LOCAL[tipoLocal as TipoLocal];
+const prefixo = lunar ? "tipo-lua" : "tipo";
 const diferente = tipoLocal !== undefined && tipoLocal !== tipo;
 ---
 
 <span class="etiqueta-tipo">
-  <span class:list={["etiqueta", `tipo-${tipo}`]}>{NOMES_TIPO[tipo]}</span>
+  <span class:list={["etiqueta", `${prefixo}-${tipo}`]}>{nome}</span>
   {
     diferente && (
-      <span class:list={["local", `tipo-${tipoLocal}`]}>
-        {t("lista.tipo_em_portugal", {
-          tipo: NOMES_TIPO_LOCAL[tipoLocal!].toLowerCase(),
-        })}
+      <span class:list={["local", `${prefixo}-${tipoLocal}`]}>
+        {t("lista.tipo_em_portugal", { tipo: nomeLocal!.toLowerCase() })}
       </span>
     )
   }

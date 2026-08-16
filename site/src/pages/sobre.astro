@@ -1,11 +1,13 @@
 ---
 import Base from "../layouts/Base.astro";
 import { t } from "../i18n";
-import { indice, intervaloDoCatalogo } from "../lib/dados";
+import { catalogo, indice, indiceLunar, intervaloDoCatalogo } from "../lib/dados";
 
 const eclipses = indice();
+const lunares = indiceLunar();
 const pesados = eclipses.filter((e) => e.dados_pesados).length;
 const intervalo = intervaloDoCatalogo();
+const metadados = catalogo();
 ---
 
 <Base titulo={t("sobre.titulo")} seccao="sobre">
@@ -15,10 +17,20 @@ const intervalo = intervaloDoCatalogo();
 
     <h2>{t("sobre.metodo_titulo")}</h2>
     <p>{t("sobre.p2")}</p>
+    <p>{t("sobre.p2_lua")}</p>
     <p>{t("sobre.p3")}</p>
     <p>{t("sobre.p4")}</p>
 
     <h2>{t("sobre.limites_titulo")}</h2>
+    <p>
+      {
+        t("sobre.p5_lua", {
+          lugares: "Lisboa, Ponta Delgada e Funchal",
+          lunares: lunares.length,
+          catalogo: metadados.lua?.no_catalogo ?? lunares.length,
+        })
+      }
+    </p>
     <p>{t("sobre.p5")}</p>
     <p>{t("sobre.p7")}</p>
     <p>

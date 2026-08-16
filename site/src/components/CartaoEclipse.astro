@@ -7,11 +7,11 @@ import {
   dataVigente,
   magnitude,
 } from "../lib/formatacao";
-import type { EntradaIndice } from "../lib/tipos";
-import { urlEclipse } from "../lib/urls";
+import type { EntradaCatalogo } from "../lib/tipos";
+import { urlDeEntrada } from "../lib/urls";
 
 interface Props {
-  eclipse: EntradaIndice;
+  eclipse: EntradaCatalogo;
 }
 
 const { eclipse } = Astro.props;
@@ -22,17 +22,39 @@ const territorios = eclipse.pt.territorios_visiveis
 ---
 
 <article class="caixa cartao">
-  <EtiquetaTipo tipo={eclipse.tipo} tipoLocal={eclipse.pt.tipo_local} />
+  <p class="astro discreto">
+    {eclipse.familia === "lunar" ? t("cartao.da_lua") : t("cartao.do_sol")}
+  </p>
+  <EtiquetaTipo
+    familia={eclipse.familia}
+    tipo={eclipse.tipo}
+    tipoLocal={eclipse.pt.tipo_local}
+  />
   <h3>
-    <a href={urlEclipse(eclipse.id)}>{dataPorExtenso(principal)}</a>
+    <a href={urlDeEntrada(eclipse)}>{dataPorExtenso(principal)}</a>
   </h3>
   <dl class="dados">
-    <dt>{t("ficha.magnitude_maxima")}</dt>
-    <dd>{magnitude(eclipse.pt.magnitude_max)}</dd>
+    {
+      eclipse.familia === "solar" ? (
+        <>
+          <dt>{t("ficha.magnitude_maxima")}</dt>
+          <dd>{magnitude(eclipse.pt.magnitude_max)}</dd>
+        </>
+      ) : (
+        <>
+          <dt>{t("ficha.magnitude_umbral")}</dt>
+          <dd>
+            {eclipse.pt.magnitude_umbral > 0
+              ? magnitude(eclipse.pt.magnitude_umbral)
+              : t("ficha.sem_umbra")}
+          </dd>
+        </>
+      )
+    }
     <dt>{t("lista.territorios")}</dt>
     <dd>{territorios}</dd>
     {
-      eclipse.pt.faixa_central && (
+      eclipse.familia === "solar" && eclipse.pt.faixa_central && (
         <>
           <dt>{t("lista.faixa_central")}</dt>
           <dd>{t("lista.sim")}</dd>
@@ -43,6 +65,13 @@ const territorios = eclipse.pt.territorios_visiveis
 </article>
 
 <style>
+  .astro {
+    margin: 0 0 0.3rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
   .cartao h3 {
     margin: 0.4rem 0 0.6rem;
     font-size: 1.15rem;

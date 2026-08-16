@@ -8,9 +8,13 @@
  * cabiam seiscentos, com cada ano a ter o seu lugar fixo.
  *
  * A cor diz o tipo do eclipse mais fundo desse ano e a intensidade diz quanto do
- * Sol chegou a ser tapado. Um ano sem nada fica com um quadrado apagado, o que
+ * astro chegou a ser tapado. Um ano sem nada fica com um quadrado apagado, o que
  * torna visivel uma coisa que a fita escondia: os intervalos de anos seguidos em
  * que Portugal nao ve eclipse nenhum.
+ *
+ * Sao duas grelhas, uma para o Sol e outra para a Lua, com a mesma disposicao.
+ * A da Lua e quase toda cheia, e e essa a primeira coisa que ela diz: eclipses
+ * da Lua ha quase todos os anos, do Sol nao.
  *
  * A grelha e para ver, nao para navegar com o teclado: sao centenas de
  * quadrados, e obrigar alguem a passar por todos com o tabulador seria mau
@@ -20,28 +24,40 @@
 import { t } from "../i18n";
 import {
   NOMES_TIPO,
+  NOMES_TIPO_LUNAR,
+  funduraEmPortugal,
   magnitude as formatarMagnitude,
   partesData,
 } from "../lib/formatacao";
-import type { EntradaIndice, TipoEclipse } from "../lib/tipos";
-import { urlEclipse } from "../lib/urls";
-import { nivelDeMagnitude } from "../lib/filtros";
+import type {
+  EntradaCatalogo,
+  Familia,
+  TipoEclipse,
+  TipoEclipseLunar,
+} from "../lib/tipos";
+import { urlDeEntrada } from "../lib/urls";
+import { nivelDeFundura } from "../lib/filtros";
 
 interface Props {
-  eclipses: EntradaIndice[];
+  eclipses: EntradaCatalogo[];
 }
 
 const { eclipses } = Astro.props;
 
-const porAno = new Map<number, EntradaIndice[]>();
-for (const eclipse of eclipses) {
-  const ano = partesData(eclipse.data_gregoriana)[0];
-  const lista = porAno.get(ano);
-  if (lista) lista.push(eclipse);
-  else porAno.set(ano, [eclipse]);
+/** Os eclipses de uma familia, indexados pelo ano. */
+function porAnoDe(familia: Familia): Map<number, EntradaCatalogo[]> {
+  const mapa = new Map<number, EntradaCatalogo[]>();
+  for (const eclipse of eclipses) {
+    if (eclipse.familia !== familia) continue;
+    const ano = partesData(eclipse.data_gregoriana)[0];
+    const lista = mapa.get(ano);
+    if (lista) lista.push(eclipse);
+    else mapa.set(ano, [eclipse]);
+  }
+  return mapa;
 }
 
-const anos = [...porAno.keys()];
+const anos = eclipses.map((e) => partesData(e.data_gregoriana)[0]);
 const primeiroSeculo = Math.floor(Math.min(...anos) / 100) * 100;
 const ultimoSeculo = Math.floor(Math.max(...anos) / 100) * 100;
 
@@ -51,73 +67,120 @@ for (let ano = primeiroSeculo; ano <= ultimoSeculo; ano += 100) seculos.push(ano
 const decadas = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
 
 /** O eclipse que da a cor ao ano: o mais fundo visto de Portugal. */
-function maisFundo(lista: EntradaIndice[]): EntradaIndice {
+function maisFundo(lista: EntradaCatalogo[]): EntradaCatalogo {
   return lista.reduce((a, b) =>
-    b.pt.magnitude_max > a.pt.magnitude_max ? b : a,
+    funduraEmPortugal(b) > funduraEmPortugal(a) ? b : a,
   );
 }
 
-function titulo(ano: number, lista: EntradaIndice[]): string {
+function nomeDoTipo(eclipse: EntradaCatalogo): string {
+  return eclipse.familia === "lunar"
+    ? NOMES_TIPO_LUNAR[eclipse.tipo]
+    : NOMES_TIPO[eclipse.tipo];
+}
+
+function titulo(ano: number, lista: EntradaCatalogo[]): string {
   const contagem =
     lista.length === 1
       ? t("inicio.seculo_um")
       : t("inicio.seculo_varios", { total: lista.length });
   const chefe = maisFundo(lista);
-  return `${ano}: ${contagem}, ${NOMES_TIPO[chefe.tipo].toLowerCase()} de magnitude ${formatarMagnitude(chefe.pt.magnitude_max)}`;
+  return `${ano}: ${contagem}, ${nomeDoTipo(chefe).toLowerCase()} de magnitude ${formatarMagnitude(funduraEmPortugal(chefe))}`;
 }
 
-const tipos: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
+/** As duas grelhas, uma por familia. Foi assim e nao com o ano dividido ao meio
+ * porque um quadrado de cinco pixeis nao se parte em dois sem deixar de se ver;
+ * separadas, cada familia tem o seu ritmo, e a comparacao entre elas continua a
+ * fazer-se de relance, linha a linha. */
+const grelhas: {
+  familia: Familia;
+  rotulo: string;
+  prefixo: string;
+  porAno: Map<number, EntradaCatalogo[]>;
+}[] = [
+  {
+    familia: "solar",
+    rotulo: t("inicio.grelha_sol"),
+    prefixo: "tipo",
+    porAno: porAnoDe("solar"),
+  },
+  {
+    familia: "lunar",
+    rotulo: t("inicio.grelha_lua"),
+    prefixo: "tipo-lua",
+    porAno: porAnoDe("lunar"),
+  },
+];
+
+const tiposSolares: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
+const tiposLunares: TipoEclipseLunar[] = ["total", "parcial", "penumbral"];
 ---
 
 <figure class="linha-temporal">
   <figcaption class="discreto">{t("inicio.linha_temporal_ajuda")}</figcaption>
 
-  <div class="envolvente-grelha">
-    <div
-      class="grelha-anos"
-      aria-hidden="true"
-      data-contagem-um={t("inicio.seculo_um")}
-      data-contagem-varios={t("inicio.seculo_varios")}
-    >
-      <span class="canto"></span>
-      {decadas.map((decada) => <span class="decada">{decada}</span>)}
+  {
+    grelhas.map((grelha) => (
+      <div class="familia" data-familia-grelha={grelha.familia}>
+        <p class="rotulo-familia">{grelha.rotulo}</p>
+        <div class="envolvente-grelha">
+          <div
+            class="grelha-anos"
+            data-familia={grelha.familia}
+            aria-hidden="true"
+            data-contagem-um={t("inicio.seculo_um")}
+            data-contagem-varios={t("inicio.seculo_varios")}
+          >
+            <span class="canto" />
+            {decadas.map((decada) => (
+              <span class="decada">{decada}</span>
+            ))}
 
-      {
-        seculos.map((seculo) => (
-          <>
-            <span class="rotulo">{seculo}</span>
-            {Array.from({ length: 100 }, (_, desvio) => {
-              const ano = seculo + desvio;
-              const lista = porAno.get(ano);
-              if (!lista) return <i class="ano"></i>;
-              const chefe = maisFundo(lista);
-              return (
-                <a
-                  class:list={[
-                    "ano",
-                    "com-eclipse",
-                    `tipo-${chefe.tipo}`,
-                    `nivel-${nivelDeMagnitude(chefe.pt.magnitude_max)}`,
-                  ]}
-                  data-ano={ano}
-                  href={urlEclipse(chefe.id)}
-                  title={titulo(ano, lista)}
-                  tabindex="-1"
-                />
-              );
-            })}
-          </>
-        ))
-      }
-    </div>
-  </div>
+            {seculos.map((seculo) => (
+              <>
+                <span class="rotulo">{seculo}</span>
+                {Array.from({ length: 100 }, (_, desvio) => {
+                  const ano = seculo + desvio;
+                  const lista = grelha.porAno.get(ano);
+                  if (!lista) return <i class="ano" />;
+                  const chefe = maisFundo(lista);
+                  return (
+                    <a
+                      class:list={[
+                        "ano",
+                        "com-eclipse",
+                        `${grelha.prefixo}-${chefe.tipo}`,
+                        `nivel-${nivelDeFundura(chefe)}`,
+                      ]}
+                      data-ano={ano}
+                      href={urlDeEntrada(chefe)}
+                      title={titulo(ano, lista)}
+                      tabindex="-1"
+                    />
+                  );
+                })}
+              </>
+            ))}
+          </div>
+        </div>
+      </div>
+    ))
+  }
 
   <ul class="legenda discreto">
     {
-      tipos.map((tipo) => (
+      tiposSolares.map((tipo) => (
         <li>
           <i class:list={["amostra", `tipo-${tipo}`, "nivel-4"]} />
           {NOMES_TIPO[tipo]}
+        </li>
+      ))
+    }
+    {
+      tiposLunares.map((tipo) => (
+        <li>
+          <i class:list={["amostra", `tipo-lua-${tipo}`, "nivel-4"]} />
+          {t("inicio.legenda_lunar", { tipo: NOMES_TIPO_LUNAR[tipo] })}
         </li>
       ))
     }
@@ -136,7 +199,23 @@ const tipos: TipoEclipse[] = ["total", "anular", "hibrido", "parcial"];
   }
 
   .linha-temporal figcaption {
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .familia + .familia {
+    margin-top: 0.9rem;
+  }
+
+  .familia[hidden] {
+    display: none;
+  }
+
+  .rotulo-familia {
+    margin: 0 0 0.25rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--texto-suave);
   }
 
   /* Em ecras estreitos a grelha nao encolhe abaixo do legivel: rola. */

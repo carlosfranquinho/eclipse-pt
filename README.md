@@ -1,16 +1,18 @@
-# Eclipses Solares em Portugal
+# Eclipses em Portugal
 
-Site estático que cataloga os eclipses solares visíveis em Portugal entre 1500 e 2499,
-com uma ficha por eclipse, mapas dinâmicos e cálculo das circunstâncias locais em
-qualquer ponto do território. São mil anos e 471 eclipses, metade deles ainda por
-acontecer.
+Site estático que cataloga os eclipses do Sol e da Lua visíveis em Portugal entre
+1500 e 2499, com uma ficha por eclipse. Os solares trazem mapas dinâmicos e cálculo
+das circunstâncias locais em qualquer ponto do território; os lunares trazem os sete
+contactos em hora local e o desenho da Lua a atravessar a sombra da Terra. São mil
+anos, 471 eclipses solares e 1727 lunares, metade deles ainda por acontecer.
 
 O plano de trabalho está em [`plano.md`](plano.md). O documento original que lhe deu
 origem está em [`plano-inicial.md`](plano-inicial.md), mantido para registo.
 
 ## Estrutura
 
-- `pipeline/` calcula os dados offline, em Python. O núcleo é `besselian.py`.
+- `pipeline/` calcula os dados offline, em Python. O núcleo solar é `besselian.py` e
+  o lunar é `lua.py`.
 - `site/` é o frontend, em Astro com MapLibre GL JS.
 - `site/public/data/` guarda os dados gerados pelo pipeline, commitados no repositório
   para o build do site não depender de Python.
@@ -27,16 +29,25 @@ uv run python pipeline/build_paths.py            # faixas e isomagnitudes
 uv run python pipeline/crossed_municipalities.py # concelhos atravessados
 uv run python pipeline/build_text.py             # parágrafo de abertura de cada ficha
 uv run python pipeline/gerar_golden.py           # casos de ouro para o teste do browser
+
+uv run python pipeline/ingest_canon_lua.py       # catálogo de eclipses lunares
+uv run python pipeline/build_index_lua.py        # índice e fichas lunares
+uv run python pipeline/build_text_lua.py         # parágrafo de abertura das fichas lunares
+uv run python pipeline/gerar_golden_lua.py       # casos de ouro do núcleo lunar
+
 uv run pytest                                    # validação completa
 ```
 
 Os passos são independentes e a ordem acima é a das dependências entre eles. As
 descargas ficam em cache local, fora do git; só os dados derivados são commitados.
 
-Duas ordens que importam: `build_text.py` corre depois de `build_index.py`, porque
-o índice reescreve as fichas e levaria o texto com ele; e `gerar_golden.py` corre
-depois de qualquer alteração ao núcleo, senão o teste do browser passa a comparar
-o TypeScript com uma versão antiga do Python. Os testes avisam nos dois casos.
+Três ordens que importam: `build_text.py` corre depois de `build_index.py`, porque
+o índice reescreve as fichas e levaria o texto com ele, e o mesmo vale do lado
+lunar; `gerar_golden.py` corre depois de qualquer alteração ao núcleo, senão o teste
+do browser passa a comparar o TypeScript com uma versão antiga do Python; e
+`build_index_lua.py` corre depois de `build_index.py`, porque as contagens da Lua
+juntam-se, no `catalogo.json`, às do Sol que aquele escreve. Os testes avisam nos
+três casos.
 
 ## Correr o site
 

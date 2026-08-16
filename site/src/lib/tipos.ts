@@ -4,6 +4,20 @@
 
 export type TipoEclipse = "total" | "anular" | "hibrido" | "parcial";
 export type TipoLocal = TipoEclipse | "nenhum";
+
+/** Do Sol ou da Lua. As duas familias vivem no mesmo catalogo e e por este
+ * campo que se distinguem, tanto nos dados como nos filtros. */
+export type Familia = "solar" | "lunar";
+
+/** Um eclipse lunar nao pode ser anular nem hibrido: a Terra e maior do que a
+ * Lua e a sua sombra nunca se afunila antes de chegar la. */
+export type TipoEclipseLunar = "total" | "parcial" | "penumbral";
+export type TipoLocalLunar = TipoEclipseLunar | "nenhum";
+
+/** Os sete contactos de um eclipse lunar. P e a penumbra, U e a umbra: P1 e o
+ * primeiro toque da penumbra, U2 e U3 abrem e fecham a totalidade. Um eclipse
+ * penumbral so tem P1, o maximo e P4. */
+export type NomeContacto = "p1" | "u1" | "u2" | "maximo" | "u3" | "u4" | "p4";
 export type Territorio = "continente" | "acores" | "madeira";
 export type SistemaHora = "hora_legal" | "hora_solar_media_local";
 export type Calendario = "juliano" | "gregoriano";
@@ -66,10 +80,20 @@ export interface Catalogo {
   total: number;
   com_faixa_central: number;
   com_dados_pesados: number;
+  /** Contagens da familia lunar, acrescentadas por `build_index_lua.py` depois
+   * de o solar escrever o ficheiro. */
+  lua?: {
+    /** Quantos se veem de Portugal. */
+    total: number;
+    /** Quantos ha no catalogo da NASA para o mesmo intervalo. */
+    no_catalogo: number;
+    perceptiveis: number;
+  };
 }
 
 export interface EntradaIndice {
   id: string;
+  familia: "solar";
   data_gregoriana: string;
   data_juliana: string | null;
   calendario_vigente_pt: Calendario;
@@ -159,3 +183,119 @@ export interface Recursos {
   isomagnitudes: string | null;
   municipios: string | null;
 }
+
+
+// ---------------------------------------------------------------------------
+// Eclipses lunares
+// ---------------------------------------------------------------------------
+
+/** O ponto de onde a ficha lunar conta as horas e as alturas, um por
+ * territorio. Um eclipse lunar e igual em todo o pais; o que muda de lugar para
+ * lugar e so a hora legal e uns graus de altura da Lua. */
+export interface LugarDeReferencia {
+  nome: string;
+  lat: number;
+  lon: number;
+}
+
+/** Um instante do eclipse, visto de um lugar. */
+export interface MomentoLunar {
+  jd_ut: number;
+  hora_local: string;
+  data_local: string;
+  sistema_hora: SistemaHora;
+  designacao_fuso: string | null;
+  hora_ut: string;
+  altura_graus: number;
+  azimute_graus: number;
+  acima_do_horizonte: boolean;
+}
+
+export interface TerritorioLunarInvisivel {
+  visivel: false;
+  lugar: LugarDeReferencia;
+}
+
+export interface TerritorioLunarVisivel {
+  visivel: true;
+  lugar: LugarDeReferencia;
+  /** Nem todos os contactos existem: um eclipse parcial nao tem U2 nem U3. */
+  contactos: Partial<Record<NomeContacto, MomentoLunar>>;
+  contactos_visiveis: NomeContacto[];
+  /** O que dali se viu, que pode ser menos do que o eclipse foi. */
+  tipo_visto: TipoLocalLunar;
+  magnitude_umbral_visivel: number;
+  magnitude_penumbral_visivel: number;
+  altura_maxima_graus: number;
+  nasceu_eclipsada: boolean;
+  poe_se_eclipsada: boolean;
+  /** Instante em que a Lua nasceu, quando isso aconteceu com o eclipse ja a
+   * decorrer. */
+  nascer?: MomentoLunar;
+  por?: MomentoLunar;
+}
+
+export type CircunstanciasLunares =
+  | TerritorioLunarVisivel
+  | TerritorioLunarInvisivel;
+
+export interface ResumoPortugalLunar {
+  tipo_local: TipoLocalLunar;
+  magnitude_umbral: number;
+  magnitude_penumbral: number;
+  /** Falso nos penumbrais rasos, que existem no papel e nao no ceu. */
+  perceptivel: boolean;
+  territorios_visiveis: Territorio[];
+  nasceu_eclipsada: boolean;
+  poe_se_eclipsada: boolean;
+}
+
+/** O eclipse reduzido aos numeros com que se desenha, o equivalente lunar dos
+ * elementos besselianos. Angulos em graus, vistos do centro da Terra. */
+export interface ElementosSombra {
+  jd_maximo_td: number;
+  delta_t_s: number;
+  raio_umbra: number;
+  raio_penumbra: number;
+  raio_lua: number;
+  /** Distancia minima do centro da Lua ao eixo da sombra, com sinal: positiva
+   * quando a Lua passa a norte do eixo. */
+  y: number;
+  /** Velocidade da Lua em relacao a sombra, em graus por hora. */
+  velocidade: number;
+}
+
+export interface EntradaIndiceLunar {
+  id: string;
+  familia: "lunar";
+  data_gregoriana: string;
+  data_juliana: string | null;
+  calendario_vigente_pt: Calendario;
+  tipo: TipoEclipseLunar;
+  saros: number;
+  pt: ResumoPortugalLunar;
+}
+
+export interface EclipseLunar extends EntradaIndiceLunar {
+  /** O codigo do Espenak, que distingue as variantes de penumbral e de total. */
+  tipo_canon: string;
+  gamma: number;
+  magnitude_umbral: number;
+  magnitude_penumbral: number;
+  delta_t_s: number;
+  maximo_global_ut: string;
+  /** Duracoes das tres fases, em minutos, como o catalogo as publica. Nulas nas
+   * fases que nao chegam a existir. */
+  duracoes_min: {
+    penumbral: number;
+    parcial: number | null;
+    total: number | null;
+  };
+  territorios: Record<Territorio, CircunstanciasLunares>;
+  elementos: ElementosSombra;
+  texto_gerado?: { passado: string; futuro: string };
+}
+
+/** Uma entrada do catalogo, seja de que familia for. E o que a lista, a linha
+ * temporal e os filtros manipulam. */
+export type EntradaCatalogo = EntradaIndice | EntradaIndiceLunar;

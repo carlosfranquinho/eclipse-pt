@@ -8,7 +8,10 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import type {
   Catalogo,
   Eclipse,
+  EclipseLunar,
+  EntradaCatalogo,
   EntradaIndice,
+  EntradaIndiceLunar,
   MetadadosFaixa,
   MunicipiosAtravessados,
   Recursos,
@@ -50,6 +53,39 @@ export function intervaloDoCatalogo(): { inicio: number; fim: number } {
 
 export function eclipse(id: string): Eclipse {
   return ler<Eclipse>(`${id}/eclipse.json`);
+}
+
+let cacheIndiceLunar: EntradaIndiceLunar[] | null = null;
+
+/** O indice dos eclipses lunares, por ordem cronologica crescente. */
+export function indiceLunar(): EntradaIndiceLunar[] {
+  if (cacheIndiceLunar === null) {
+    cacheIndiceLunar = ler<EntradaIndiceLunar[]>("eclipses-lua-index.json");
+  }
+  return cacheIndiceLunar;
+}
+
+export function eclipseLunar(id: string): EclipseLunar {
+  return ler<EclipseLunar>(`lua/${id}/eclipse.json`);
+}
+
+let cacheCompleto: EntradaCatalogo[] | null = null;
+
+/** As duas familias no mesmo catalogo, por ordem cronologica.
+ *
+ * Ha dias com um eclipse solar e outro lunar? Nunca no mesmo dia, mas sim na
+ * mesma quinzena, e e por isso que a chave de ordenacao tem de incluir a
+ * familia: dois eclipses podem partilhar o identificador se um for do Sol e
+ * outro da Lua noutro ano, mas nunca dentro da mesma lista ordenada. */
+export function indiceCompleto(): EntradaCatalogo[] {
+  if (cacheCompleto === null) {
+    cacheCompleto = [...indice(), ...indiceLunar()].sort((a, b) =>
+      a.data_gregoriana === b.data_gregoriana
+        ? a.familia.localeCompare(b.familia)
+        : a.data_gregoriana.localeCompare(b.data_gregoriana),
+    );
+  }
+  return cacheCompleto;
 }
 
 export function municipios(id: string): MunicipiosAtravessados | null {
@@ -108,6 +144,21 @@ export function vizinhos(id: string): {
   seguinte: EntradaIndice | null;
 } {
   const lista = indice();
+  const i = lista.findIndex((e) => e.id === id);
+  return {
+    anterior: i > 0 ? lista[i - 1]! : null,
+    seguinte: i >= 0 && i < lista.length - 1 ? lista[i + 1]! : null,
+  };
+}
+
+/** Os vizinhos de um eclipse lunar, dentro da sua propria familia: a navegacao
+ * de uma ficha lunar leva a outra ficha lunar, e nao ao eclipse solar que por
+ * acaso caiu duas semanas antes. */
+export function vizinhosLunares(id: string): {
+  anterior: EntradaIndiceLunar | null;
+  seguinte: EntradaIndiceLunar | null;
+} {
+  const lista = indiceLunar();
   const i = lista.findIndex((e) => e.id === id);
   return {
     anterior: i > 0 ? lista[i - 1]! : null,

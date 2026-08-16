@@ -23,12 +23,24 @@ import {
   dataVigente,
   magnitude,
 } from "../lib/formatacao";
-import type { EntradaIndice } from "../lib/tipos";
-import { urlEclipse } from "../lib/urls";
+import type { EntradaCatalogo } from "../lib/tipos";
+import { urlDeEntrada } from "../lib/urls";
 import { atributosFiltro, porSeculo } from "../lib/filtros";
 
 interface Props {
-  eclipses: EntradaIndice[];
+  eclipses: EntradaCatalogo[];
+}
+
+/** A magnitude que a linha mostra, e que nao e a mesma coisa nas duas famílias:
+ * no Sol e a fraccao do diametro solar tapada pela Lua, na Lua e a do diametro
+ * lunar dentro da umbra da Terra. A coluna do astro, ao lado, diz qual e qual. Um
+ * eclipse que nao chega a tocar a umbra nao tem magnitude que valha a pena
+ * mostrar, e leva travessao. */
+function magnitudeDaLinha(eclipse: EntradaCatalogo): string {
+  if (eclipse.familia === "solar") return magnitude(eclipse.pt.magnitude_max);
+  return eclipse.pt.magnitude_umbral > 0
+    ? magnitude(eclipse.pt.magnitude_umbral)
+    : "\u2014";
 }
 
 const { eclipses } = Astro.props;
@@ -84,6 +96,7 @@ const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
             <thead>
               <tr>
                 <th scope="col">{t("lista.data")}</th>
+                <th scope="col">{t("lista.astro")}</th>
                 <th scope="col">{t("lista.tipo")}</th>
                 <th scope="col" class="numero">
                   {t("lista.magnitude")}
@@ -101,7 +114,7 @@ const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
                 return (
                   <tr {...atributosFiltro(eclipse)}>
                     <th scope="row">
-                      <a href={urlEclipse(eclipse.id)}>
+                      <a href={urlDeEntrada(eclipse)}>
                         {dataPorExtenso(principal)}
                       </a>
                       {alternativa && (
@@ -111,16 +124,31 @@ const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
                         </span>
                       )}
                     </th>
-                    <td>
-                      <EtiquetaTipo tipo={eclipse.tipo} tipoLocal={eclipse.pt.tipo_local} />
+                    <td class="astro">
+                      {eclipse.familia === "lunar"
+                        ? t("lista.lua")
+                        : t("lista.sol")}
                     </td>
-                    <td class="numero">{magnitude(eclipse.pt.magnitude_max)}</td>
+                    <td>
+                      <EtiquetaTipo
+                        familia={eclipse.familia}
+                        tipo={eclipse.tipo}
+                        tipoLocal={eclipse.pt.tipo_local}
+                      />
+                    </td>
+                    <td class="numero">{magnitudeDaLinha(eclipse)}</td>
                     <td>
                       {eclipse.pt.territorios_visiveis
                         .map((territorio) => NOMES_TERRITORIO[territorio])
                         .join(", ")}
                     </td>
-                    <td>{eclipse.pt.faixa_central ? t("lista.sim") : ""}</td>
+                    <td>
+                      {eclipse.familia === "lunar"
+                        ? "\u2014"
+                        : eclipse.pt.faixa_central
+                          ? t("lista.sim")
+                          : ""}
+                    </td>
                     <td class="numero">{eclipse.saros}</td>
                   </tr>
                 );
@@ -185,6 +213,11 @@ const seculoActual = Math.floor(new Date().getFullYear() / 100) * 100;
 
   th[scope="row"] {
     white-space: nowrap;
+  }
+
+  .astro {
+    white-space: nowrap;
+    color: var(--texto-suave);
   }
 
   tr[hidden] {

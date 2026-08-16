@@ -15,6 +15,22 @@ export function urlEclipse(id: string): string {
   return caminho(`eclipse/${id}`);
 }
 
+/** O endereco de uma ficha lunar. Os enderecos solares nao mudaram quando os
+ * lunares chegaram, e e por isso que a familia so aparece nestes. */
+export function urlEclipseLunar(id: string): string {
+  return caminho(`eclipse/lua/${id}`);
+}
+
+/** O endereco da ficha de uma entrada do catalogo, seja de que familia for. */
+export function urlDeEntrada(entrada: {
+  id: string;
+  familia: "solar" | "lunar";
+}): string {
+  return entrada.familia === "lunar"
+    ? urlEclipseLunar(entrada.id)
+    : urlEclipse(entrada.id);
+}
+
 export function urlDados(relativo: string): string {
   return caminho(relativo);
 }

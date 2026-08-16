@@ -17,6 +17,14 @@
   --tipo-hibrido: #0f766e;
   --tipo-parcial: #64748b;
 
+  /* Os tipos lunares tem paleta propria, e nao uma variacao da solar: numa
+     grelha com as duas familias lado a lado, a mesma cor a dizer coisas
+     diferentes seria pior do que cor nenhuma. O vermelho da totalidade nao e
+     arbitrario, e a cor que a Lua toma dentro da umbra. */
+  --tipo-lua-total: #b91c1c;
+  --tipo-lua-parcial: #a21caf;
+  --tipo-lua-penumbral: #78716c;
+
   --largura: 68rem;
   --raio: 0.5rem;
   --tipografia: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
@@ -40,6 +48,10 @@
     --tipo-anular: #fbbf24;
     --tipo-hibrido: #5eead4;
     --tipo-parcial: #94a3b8;
+
+    --tipo-lua-total: #fca5a5;
+    --tipo-lua-parcial: #f0abfc;
+    --tipo-lua-penumbral: #a8a29e;
   }
 }
 
@@ -204,6 +216,20 @@ main {
 }
 .tipo-parcial {
   color: var(--tipo-parcial);
+}
+
+.tipo-lua-total {
+  color: var(--tipo-lua-total);
+}
+.tipo-lua-parcial {
+  color: var(--tipo-lua-parcial);
+}
+.tipo-lua-penumbral {
+  color: var(--tipo-lua-penumbral);
+}
+.tipo-lua-nenhum,
+.tipo-nenhum {
+  color: var(--texto-suave);
 }
 
 /* Tabelas */

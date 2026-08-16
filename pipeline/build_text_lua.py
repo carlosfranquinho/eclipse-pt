@@ -227,7 +227,7 @@ def _o_que_se_viu(ficha: dict, dados: dict, v: dict, sorte: random.Random) -> st
 
     if not ficha["pt"]["perceptivel"]:
         return (
-            f"Em {lugar}, a Lua {v['atravessou']} apenas a orla exterior da"
+            f"Em {lugar}, a Lua {v['chegou']} apenas à orla exterior da"
             " penumbra, um escurecimento que a olho nu não se distingue de uma"
             " noite qualquer."
         )

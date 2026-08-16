@@ -1,0 +1,498 @@
+---
+/** A ficha de um eclipse lunar.
+ *
+ * Vive em `eclipse/lua/<id>` e nao em `eclipse/<id>`: os enderecos dos solares
+ * ja estavam publicados quando os lunares chegaram, e nao havia razao para os
+ * mudar. A familia so aparece onde e nova.
+ *
+ * O que uma ficha lunar tem que a solar nao tem: a tabela dos sete contactos,
+ * porque num eclipse da Lua a sequencia e o proprio acontecimento, e a coluna
+ * que diz se a Lua estava no ceu em cada um deles. O que nao tem: mapa nem
+ * concelhos, porque nao ha nada que mude de sitio para sitio.
+ */
+import { getEntry, render } from "astro:content";
+import Base from "../../../layouts/Base.astro";
+import EtiquetaTipo from "../../../components/EtiquetaTipo.astro";
+import SombraDaTerra from "../../../components/SombraDaTerra.astro";
+import { t } from "../../../i18n";
+import {
+  NOMES_TERRITORIO,
+  NOMES_TIPO_LOCAL_LUNAR,
+  NOMES_TIPO_LUNAR,
+  dataPorExtenso,
+  dataVigente,
+  graus,
+  horaCurta,
+  magnitude,
+  numero,
+  rotuloSistemaHora,
+  tituloLunar,
+} from "../../../lib/formatacao";
+import {
+  eclipseLunar as lerEclipse,
+  indiceLunar,
+  vizinhosLunares,
+} from "../../../lib/dados";
+import { ORDEM_DOS_CONTACTOS } from "../../../lib/sombra";
+import { TERRITORIOS } from "../../../lib/territorios";
+import type { NomeContacto } from "../../../lib/tipos";
+import { caminho, urlEclipseLunar } from "../../../lib/urls";
+
+export function getStaticPaths() {
+  return indiceLunar().map((entrada) => ({ params: { id: entrada.id } }));
+}
+
+const { id } = Astro.params;
+const eclipse = lerEclipse(id!);
+const { anterior, seguinte } = vizinhosLunares(eclipse.id);
+
+const { principal, alternativa, calendario } = dataVigente(eclipse);
+const cabecalho = tituloLunar(eclipse);
+
+const usaHoraSolar = TERRITORIOS.some((territorio) => {
+  const dados = eclipse.territorios[territorio];
+  return (
+    dados.visivel &&
+    dados.contactos.maximo?.sistema_hora === "hora_solar_media_local"
+  );
+});
+
+// O nome de cada contacto, para a tabela nao obrigar quem le a saber de cor o
+// que e um U2.
+const NOMES_CONTACTO: Record<NomeContacto, string> = {
+  p1: t("lua.contacto_p1"),
+  u1: t("lua.contacto_u1"),
+  u2: t("lua.contacto_u2"),
+  maximo: t("lua.contacto_maximo"),
+  u3: t("lua.contacto_u3"),
+  u4: t("lua.contacto_u4"),
+  p4: t("lua.contacto_p4"),
+};
+
+const territoriosVisiveis = TERRITORIOS.filter(
+  (territorio) => eclipse.territorios[territorio].visivel,
+);
+
+// Conteudo editorial, com as mesmas regras do lado solar mas em pastas
+// proprias: `src/content/notas/lua/<id>.md` e `galeria/lua/<id>.yaml`.
+const nota = await getEntry("notasLua", eclipse.id);
+const Nota = nota ? (await render(nota)).Content : null;
+const galeria = await getEntry("galeriaLua", eclipse.id);
+
+const hoje = new Date().toISOString().slice(0, 10);
+const abertura = eclipse.texto_gerado
+  ? eclipse.data_gregoriana > hoje
+    ? eclipse.texto_gerado.futuro
+    : eclipse.texto_gerado.passado
+  : null;
+---
+
+<Base titulo={cabecalho} descricao={cabecalho}>
+  <p class="discreto">
+    <a href={caminho("")}>{t("ficha.voltar")}</a>
+  </p>
+
+  <h1>{cabecalho}</h1>
+  <p class="datas">
+    <EtiquetaTipo
+      familia="lunar"
+      tipo={eclipse.tipo}
+      tipoLocal={eclipse.pt.tipo_local}
+    />
+    <span>
+      {dataPorExtenso(principal)}{" "}
+      {
+        alternativa && (
+          <span class="discreto">
+            ({dataPorExtenso(alternativa)}, {t("ficha.calendario_gregoriano")})
+          </span>
+        )
+      }
+    </span>
+  </p>
+
+  {abertura && <p class="abertura">{abertura}</p>}
+
+  {
+    calendario === "juliano" && (
+      <div class="nota">
+        <p>{t("ficha.nota_calendario")}</p>
+      </div>
+    )
+  }
+  {
+    usaHoraSolar && (
+      <div class="nota">
+        <p>{t("ficha.nota_hora_solar")}</p>
+      </div>
+    )
+  }
+  {
+    !eclipse.pt.perceptivel && (
+      <div class="nota">
+        <p>{t("lua.nota_imperceptivel")}</p>
+      </div>
+    )
+  }
+
+  <SombraDaTerra eclipse={eclipse} />
+
+  <h2>{t("lua.contactos")}</h2>
+  <p class="discreto">{t("lua.contactos_ajuda")}</p>
+  <div class="tabela-envolvente">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">{t("lua.contacto")}</th>
+          <th scope="col" class="numero">{t("ficha.maximo_ut")}</th>
+          {
+            territoriosVisiveis.map((territorio) => (
+              <th scope="col" class="numero">
+                {NOMES_TERRITORIO[territorio]}
+              </th>
+            ))
+          }
+        </tr>
+      </thead>
+      <tbody>
+        {
+          ORDEM_DOS_CONTACTOS.map((nome) => {
+            const algum = territoriosVisiveis
+              .map((territorio) => eclipse.territorios[territorio])
+              .find((dados) => dados.visivel && dados.contactos[nome]);
+            if (!algum || !algum.visivel) return null;
+            return (
+              <tr>
+                <th scope="row">{NOMES_CONTACTO[nome]}</th>
+                <td class="numero">{horaCurta(algum.contactos[nome]!.hora_ut)}</td>
+                {territoriosVisiveis.map((territorio) => {
+                  const dados = eclipse.territorios[territorio];
+                  const momento = dados.visivel ? dados.contactos[nome] : null;
+                  if (!momento) return <td class="numero">—</td>;
+                  return (
+                    <td class="numero">
+                      <span class:list={[!momento.acima_do_horizonte && "abaixo"]}>
+                        {horaCurta(momento.hora_local)}
+                      </span>
+                      <span class="altura discreto">
+                        {momento.acima_do_horizonte
+                          ? graus(momento.altura_graus, 0)
+                          : t("lua.abaixo_do_horizonte")}
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="discreto nota-lugares">
+    {
+      t("lua.nota_lugares", {
+        lugares: territoriosVisiveis
+          .map((territorio) => {
+            const dados = eclipse.territorios[territorio];
+            return `${NOMES_TERRITORIO[territorio]}: ${dados.lugar.nome}`;
+          })
+          .join("; "),
+      })
+    }
+  </p>
+
+  <h2>{t("ficha.circunstancias")}</h2>
+  <div class="grelha">
+    {
+      TERRITORIOS.map((territorio) => {
+        const dados = eclipse.territorios[territorio];
+        return (
+          <section class="caixa">
+            <h3>{NOMES_TERRITORIO[territorio]}</h3>
+            {dados.visivel ? (
+              <dl class="dados">
+                <dt>{t("ficha.tipo_local")}</dt>
+                <dd>{NOMES_TIPO_LOCAL_LUNAR[dados.tipo_visto]}</dd>
+
+                <dt>{t("ficha.magnitude_umbral")}</dt>
+                <dd>
+                  {dados.magnitude_umbral_visivel > 0
+                    ? magnitude(dados.magnitude_umbral_visivel)
+                    : t("ficha.sem_umbra")}
+                </dd>
+
+                <dt>{t("ficha.magnitude_penumbral")}</dt>
+                <dd>{magnitude(dados.magnitude_penumbral_visivel)}</dd>
+
+                <dt>{t("lua.lugar")}</dt>
+                <dd>{dados.lugar.nome}</dd>
+
+                <dt>{t("lua.maximo_local")}</dt>
+                <dd>
+                  {horaCurta(dados.contactos.maximo!.hora_local)}
+                  <span class="discreto">
+                    {" "}
+                    {rotuloSistemaHora(
+                      dados.contactos.maximo!.sistema_hora,
+                      dados.contactos.maximo!.designacao_fuso,
+                    )}
+                  </span>
+                </dd>
+
+                <dt>{t("lua.altura_maxima")}</dt>
+                <dd>{graus(dados.altura_maxima_graus, 0)}</dd>
+
+                {dados.nascer && (
+                  <>
+                    <dt>{t("lua.nascer")}</dt>
+                    <dd>{horaCurta(dados.nascer.hora_local)}</dd>
+                  </>
+                )}
+
+                {dados.por && (
+                  <>
+                    <dt>{t("lua.por")}</dt>
+                    <dd>{horaCurta(dados.por.hora_local)}</dd>
+                  </>
+                )}
+              </dl>
+            ) : (
+              <p class="discreto">{t("lua.nao_visivel")}</p>
+            )}
+          </section>
+        );
+      })
+    }
+  </div>
+
+  {
+    nota && Nota && (
+      <section class="notas">
+        <h2>{nota.data.titulo ?? t("ficha.notas")}</h2>
+        <div class="prosa">
+          <Nota />
+        </div>
+        {nota.data.fontes && nota.data.fontes.length > 0 && (
+          <>
+            <h3>{t("ficha.fontes")}</h3>
+            <ul class="fontes">
+              {nota.data.fontes.map((fonte) => (
+                <li>
+                  {fonte.url ? <a href={fonte.url}>{fonte.titulo}</a> : fonte.titulo}
+                  {fonte.autor && <span>, {fonte.autor}</span>}
+                  {fonte.publicacao && <span>, {fonte.publicacao}</span>}
+                  {fonte.ano && <span>, {fonte.ano}</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+    )
+  }
+
+  {
+    galeria && (
+      <section class="galeria">
+        <h2>{t("ficha.galeria")}</h2>
+        <div class="imagens">
+          {galeria.data.imagens.map((imagem) => {
+            const credito = [imagem.autor, imagem.ano, imagem.fonte]
+              .filter(Boolean)
+              .join(", ");
+            return (
+              <figure>
+                <img
+                  src={caminho(`imagens/lua/${eclipse.id}/${imagem.ficheiro}`)}
+                  alt={imagem.alternativo ?? imagem.legenda}
+                  width={imagem.largura}
+                  height={imagem.altura}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  {imagem.legenda}
+                  <span class="credito">
+                    {credito && <>{credito}. </>}
+                    {imagem.url && (
+                      <>
+                        <a href={imagem.url}>{t("ficha.imagem_origem")}</a>.{" "}
+                      </>
+                    )}
+                    {t("ficha.licenca")}: {imagem.licenca}.
+                  </span>
+                </figcaption>
+              </figure>
+            );
+          })}
+        </div>
+      </section>
+    )
+  }
+
+  <h2>{t("ficha.dados_globais")}</h2>
+  <dl class="dados dados-globais">
+    <dt>{t("ficha.tipo")}</dt>
+    <dd>{NOMES_TIPO_LUNAR[eclipse.tipo]}</dd>
+
+    <dt>{t("ficha.saros")}</dt>
+    <dd>{eclipse.saros}</dd>
+
+    <dt>{t("ficha.gamma")}</dt>
+    <dd>{numero(eclipse.gamma, 4)}</dd>
+
+    <dt>{t("lua.magnitude_umbral_global")}</dt>
+    <dd>{numero(eclipse.magnitude_umbral, 4)}</dd>
+
+    <dt>{t("lua.magnitude_penumbral_global")}</dt>
+    <dd>{numero(eclipse.magnitude_penumbral, 4)}</dd>
+
+    <dt>{t("ficha.maximo_global")}</dt>
+    <dd>{eclipse.maximo_global_ut} UT</dd>
+
+    <dt>{t("lua.duracao_penumbral")}</dt>
+    <dd>{numero(eclipse.duracoes_min.penumbral, 1)} min</dd>
+
+    {
+      eclipse.duracoes_min.parcial !== null && (
+        <>
+          <dt>{t("lua.duracao_parcial")}</dt>
+          <dd>{numero(eclipse.duracoes_min.parcial, 1)} min</dd>
+        </>
+      )
+    }
+
+    {
+      eclipse.duracoes_min.total !== null && (
+        <>
+          <dt>{t("lua.duracao_total")}</dt>
+          <dd>{numero(eclipse.duracoes_min.total, 1)} min</dd>
+        </>
+      )
+    }
+
+    <dt>{t("ficha.delta_t")}</dt>
+    <dd>{numero(eclipse.delta_t_s, 1)} s</dd>
+  </dl>
+
+  <nav class="vizinhos" aria-label={t("nav.catalogo")}>
+    {
+      anterior ? (
+        <a href={urlEclipseLunar(anterior.id)}>
+          <span class="discreto">{t("ficha.anterior")}</span>
+          <br />
+          {dataPorExtenso(dataVigente(anterior).principal)}
+        </a>
+      ) : (
+        <span />
+      )
+    }
+    {
+      seguinte && (
+        <a class="direita" href={urlEclipseLunar(seguinte.id)}>
+          <span class="discreto">{t("ficha.seguinte")}</span>
+          <br />
+          {dataPorExtenso(dataVigente(seguinte).principal)}
+        </a>
+      )
+    }
+  </nav>
+</Base>
+
+<style>
+  .prosa,
+  .fontes,
+  .nota-lugares {
+    max-width: 44rem;
+  }
+
+  .fontes {
+    font-size: 0.95rem;
+  }
+
+  .imagens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .imagens figure {
+    margin: 0;
+    flex: 0 1 auto;
+    max-width: 100%;
+  }
+
+  .imagens img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-height: 28rem;
+    max-width: 100%;
+    border-radius: var(--raio);
+    border: 1px solid var(--linha);
+  }
+
+  .imagens figcaption {
+    margin-top: 0.4rem;
+    max-width: 34rem;
+    font-size: 0.9rem;
+  }
+
+  .credito {
+    display: block;
+    color: var(--texto-suave);
+    font-size: 0.82rem;
+  }
+
+  .abertura {
+    font-family: var(--tipografia);
+    font-size: 1.15rem;
+    line-height: 1.55;
+    max-width: 44rem;
+  }
+
+  .datas {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    font-size: 1.05rem;
+    margin-top: 0;
+  }
+
+  /* A altura da Lua vai por baixo da hora, na mesma celula: sao a mesma
+     informacao, "a que horas e a que altura", e separa-las em duas colunas por
+     territorio dava uma tabela com o dobro das colunas. */
+  .altura {
+    display: block;
+    font-size: 0.8rem;
+  }
+
+  /* Um contacto que aconteceu com a Lua abaixo do horizonte esta la, porque faz
+     parte do eclipse, mas dali ninguem o viu. */
+  .abaixo {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    opacity: 0.6;
+  }
+
+  .dados-globais {
+    max-width: 32rem;
+  }
+
+  .vizinhos {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--linha);
+  }
+
+  .vizinhos .direita {
+    text-align: right;
+    margin-left: auto;
+  }
+</style>

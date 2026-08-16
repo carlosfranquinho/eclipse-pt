@@ -617,6 +617,9 @@ def duracoes(jde: Any, gamma: Any, regra: str = REGRA_ADOPTADA) -> dict[str, Any
 # cada uma. Sao os nomes classicos: P para a penumbra, U para a umbra.
 CONTACTOS = (("penumbral", "p1", "p4"), ("parcial", "u1", "u4"), ("total", "u2", "u3"))
 
+# Os sete contactos pela ordem em que acontecem.
+CONTACTOS_POR_ORDEM = ("p1", "u1", "u2", "maximo", "u3", "u4", "p4")
+
 
 def elementos_do_eclipse(
     jd_maximo_td: float, gamma: float, duracao_penumbral_min: float, delta_t_s: float

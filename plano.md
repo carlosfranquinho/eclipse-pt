@@ -536,3 +536,43 @@ Passaram a cinco zonas com degraus largos, a faixa de totalidade passou a ser o
 tom cheio da escala, e as amostras da legenda passaram a ser pintadas como o mapa
 as pinta: a mesma cor, a mesma opacidade, sobre a mesma cor de terra. A tabela
 que as define vive num sitio so, `src/lib/isomagnitudes.ts`.
+
+**Os eclipses da Lua.** O site cobria metade do céu. Passou a cobrir o outro
+metade: os 2424 eclipses lunares do mesmo milénio, dos quais 1727 tiveram alguma
+fase com a Lua acima do horizonte em Portugal. O nome mudou de "Eclipses Solares
+em Portugal" para "Eclipses em Portugal".
+
+Não se reaproveitou quase nada do núcleo besseliano, e não havia como: um eclipse
+lunar não tem faixa, não tem sombra a atravessar o país e não tem magnitude que
+mude de concelho para concelho. A única coisa que muda com o lugar é decisiva, e
+é se a Lua estava acima do horizonte. O `lua.py` é novo do princípio ao fim, com
+as efemérides do Meeus, e o que valida a sua exactidão não é uma âncora nem
+quatro: é o ponto da Terra que tem a Lua no zénite, que o catálogo publica para
+cada eclipse, e que sai destas efemérides dentro do arredondamento com que vem
+impresso, nos 2424.
+
+A dilatação da sombra da Terra pela atmosfera não tem regra única na literatura.
+Escolheu-se por comparação e não por gosto: o raio da Terra aumentado em 1/100
+reproduz as magnitudes publicadas com erro quadrático médio de 0,00007, contra
+0,003 da regra de Danjon e 0,03 da de Chauvenet. Um teste em massa fixa a
+escolha.
+
+O modelo do desenho é o mesmo que o catálogo usa para publicar as durações: a Lua
+atravessa a sombra em linha recta e a velocidade constante. A velocidade não vem
+das efemérides, vem da duração penumbral publicada, e assim os sete contactos
+calculados aqui reproduzem os do catálogo com poucos segundos de diferença. São
+meia dúzia de números por eclipse, o equivalente lunar dos elementos besselianos,
+e é com eles que o browser desenha e recalcula, pelo `sombra.ts`, com os seus
+casos de ouro como o solar tem.
+
+Duas decisões de âmbito. Os eclipses penumbrais rasos ficam no catálogo, porque
+aconteceram, mas assinalados: 529 dos 1727 não se distinguem a olho nu de uma
+noite qualquer, e prometê-los seria enganar quem for ver. E as horas de cada
+ficha lunar são as de um ponto de referência por território, Lisboa, Ponta
+Delgada e Funchal, porque dentro de um território só mudam minutos no nascer e no
+pôr da Lua; a ficha di-lo em vez de fingir uma precisão que não tem.
+
+A linha temporal ficou com duas grelhas em vez de uma com os anos partidos ao
+meio: um quadrado de cinco pixéis não se parte em dois sem deixar de se ver. Lado
+a lado, a comparação continua a fazer-se de relance, e a primeira coisa que a
+grelha da Lua diz é que eclipses lunares há quase todos os anos e solares não.

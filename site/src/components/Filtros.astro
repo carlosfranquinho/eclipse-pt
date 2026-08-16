@@ -1,20 +1,53 @@
 ---
 import { t } from "../i18n";
-import { NOMES_TERRITORIO, NOMES_TIPO } from "../lib/formatacao";
-import type { EntradaIndice, Territorio, TipoEclipse } from "../lib/tipos";
+import {
+  NOMES_TERRITORIO,
+  NOMES_TIPO,
+  NOMES_TIPO_LUNAR,
+} from "../lib/formatacao";
+import type { EntradaCatalogo, Familia, Territorio } from "../lib/tipos";
 import { periodos } from "../lib/filtros";
 
 interface Props {
-  eclipses: EntradaIndice[];
+  eclipses: EntradaCatalogo[];
 }
 
 const { eclipses } = Astro.props;
-const tipos = Object.keys(NOMES_TIPO) as TipoEclipse[];
+
+// Os tipos das duas familias numa lista so, sem repetir os que partilham o
+// nome: "total" filtra os totais do Sol e os da Lua, e quem so quiser uns
+// escolhe tambem o astro, logo ao lado.
+const tipos = [
+  ...new Set([...Object.keys(NOMES_TIPO), ...Object.keys(NOMES_TIPO_LUNAR)]),
+];
+const nomeDoTipo = (tipo: string) =>
+  (NOMES_TIPO as Record<string, string>)[tipo] ??
+  (NOMES_TIPO_LUNAR as Record<string, string>)[tipo] ??
+  tipo;
+
+const familias: { valor: Familia; nome: string }[] = [
+  { valor: "solar", nome: t("filtros.sol") },
+  { valor: "lunar", nome: t("filtros.lua") },
+];
 const territorios = Object.keys(NOMES_TERRITORIO) as Territorio[];
 const intervalos = periodos(eclipses);
 ---
 
 <form id="filtros" class="filtros caixa so-com-js" aria-label={t("filtros.titulo")}>
+  <fieldset>
+    <legend>{t("filtros.astro")}</legend>
+    <div class="opcoes">
+      {
+        familias.map((familia) => (
+          <label>
+            <input type="checkbox" name="familia" value={familia.valor} />
+            {familia.nome}
+          </label>
+        ))
+      }
+    </div>
+  </fieldset>
+
   <fieldset>
     <legend>{t("filtros.tipo")}</legend>
     <div class="opcoes">
@@ -22,7 +55,7 @@ const intervalos = periodos(eclipses);
         tipos.map((tipo) => (
           <label>
             <input type="checkbox" name="tipo" value={tipo} />
-            {NOMES_TIPO[tipo]}
+            {nomeDoTipo(tipo)}
           </label>
         ))
       }
@@ -113,9 +146,12 @@ const intervalos = periodos(eclipses);
 <p id="sem-resultados" class="nota" hidden>{t("filtros.sem_resultados")}</p>
 
 <script>
-  import { NOMES_TIPO, magnitude as formatarMagnitude } from "../lib/formatacao";
-  import { nivelDeMagnitude } from "../lib/filtros";
-  import type { TipoEclipse } from "../lib/tipos";
+  import {
+    NOMES_TIPO,
+    NOMES_TIPO_LUNAR,
+    magnitude as formatarMagnitude,
+  } from "../lib/formatacao";
+  import { nivelDeMagnitude, nivelLunar } from "../lib/filtros";
 
   const forma = document.getElementById("filtros") as HTMLFormElement | null;
   const contagem = document.getElementById("contagem-filtros");
@@ -147,31 +183,54 @@ const intervalos = periodos(eclipses);
     // a cor de cada quadrado vem do eclipse mais fundo que ali sobreviver ao
     // filtro. Sai daqui e nao do proprio componente porque so aqui se sabe o que
     // esta a passar.
-    const grelha = document.querySelector<HTMLElement>(".grelha-anos");
+    // Uma grelha por familia, e as celulas de todas indexadas por familia e
+    // ano: o mesmo ano tem um quadrado do Sol e outro da Lua, e sao os dois a
+    // repintar.
+    const blocosDeGrelha = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-familia-grelha]"),
+    );
     const celulas = new Map<string, HTMLAnchorElement>();
-    for (const celula of grelha?.querySelectorAll<HTMLAnchorElement>(
-      ".com-eclipse[data-ano]",
-    ) ?? []) {
-      celulas.set(celula.dataset.ano!, celula);
+    for (const grelha of document.querySelectorAll<HTMLElement>(
+      ".grelha-anos[data-familia]",
+    )) {
+      const familia = grelha.dataset.familia!;
+      for (const celula of grelha.querySelectorAll<HTMLAnchorElement>(
+        ".com-eclipse[data-ano]",
+      )) {
+        celulas.set(`${familia}:${celula.dataset.ano}`, celula);
+      }
     }
 
     interface AnoNaGrelha {
       quantos: number;
+      familia: string;
       tipo: string;
       magnitude: number;
       destino: string;
     }
 
+    /** O prefixo de classe e o nome do tipo dependem da familia: as duas tem um
+     * tipo chamado "total" e sao coisas diferentes, com cores diferentes. */
+    const prefixoDe = (familia: string) =>
+      familia === "lunar" ? "tipo-lua" : "tipo";
+    const nomeDoTipo = (familia: string, tipo: string) =>
+      familia === "lunar"
+        ? ((NOMES_TIPO_LUNAR as Record<string, string>)[tipo] ?? tipo)
+        : ((NOMES_TIPO as Record<string, string>)[tipo] ?? tipo);
+
     function pintarGrelha(linhas: HTMLElement[]) {
       const porAno = new Map<string, AnoNaGrelha>();
       for (const linha of linhas) {
         const ano = linha.dataset.ano;
-        if (!ano) continue;
+        const familia = linha.dataset.familia;
+        if (!ano || !familia) continue;
+        const chave = `${familia}:${ano}`;
         const magnitude = Number(linha.dataset.magnitude ?? 0);
-        const anterior = porAno.get(ano);
+        const anterior = porAno.get(chave);
         if (!anterior) {
-          porAno.set(ano, {
+          porAno.set(chave, {
             quantos: 1,
+            familia,
             tipo: linha.dataset.tipo ?? "parcial",
             magnitude,
             destino: linha.querySelector("a")?.getAttribute("href") ?? "",
@@ -187,21 +246,40 @@ const intervalos = periodos(eclipses);
         }
       }
 
-      for (const [ano, celula] of celulas) {
-        const dados = porAno.get(ano);
+      for (const [chave, celula] of celulas) {
+        const dados = porAno.get(chave);
+        const ano = chave.split(":")[1];
         if (!dados) {
           celula.className = "ano com-eclipse apagado";
           celula.removeAttribute("title");
           continue;
         }
-        celula.className = `ano com-eclipse tipo-${dados.tipo} nivel-${nivelDeMagnitude(dados.magnitude)}`;
+        const nivel =
+          dados.familia === "lunar"
+            ? nivelLunar({
+                pt: {
+                  magnitude_umbral: dados.magnitude,
+                  magnitude_penumbral: dados.magnitude,
+                },
+              })
+            : nivelDeMagnitude(dados.magnitude);
+        celula.className = `ano com-eclipse ${prefixoDe(dados.familia)}-${dados.tipo} nivel-${nivel}`;
         if (dados.destino) celula.href = dados.destino;
         const contagem =
           dados.quantos === 1
             ? contarUm
             : contarVarios.replace("{total}", String(dados.quantos));
-        const nome = NOMES_TIPO[dados.tipo as TipoEclipse] ?? dados.tipo;
+        const nome = nomeDoTipo(dados.familia, dados.tipo);
         celula.title = `${ano}: ${contagem}, ${nome.toLowerCase()} de magnitude ${formatarMagnitude(dados.magnitude)}`;
+      }
+
+      // Uma grelha inteira sem nada e ruido: se o filtro deixou de fora uma das
+      // familias, a grelha dela sai da pagina.
+      for (const bloco of blocosDeGrelha) {
+        const familia = bloco.dataset.familiaGrelha!;
+        bloco.hidden = ![...porAno.values()].some(
+          (dados) => dados.familia === familia,
+        );
       }
     }
 
@@ -250,6 +328,7 @@ const intervalos = periodos(eclipses);
     function aplicar() {
       const dados = new FormData(forma!);
       const tipos = marcados("tipo");
+      const familiasEscolhidas = marcados("familia");
       const territorios = marcados("territorio");
       const intervalo = String(dados.get("intervalo") ?? "");
       const magnitudeMinima = Number(dados.get("magnitude") ?? 0);
@@ -262,6 +341,8 @@ const intervalos = periodos(eclipses);
         const d = elemento.dataset;
         const territoriosDoEclipse = (d.territorios ?? "").split(" ");
         const passa =
+          (familiasEscolhidas.length === 0 ||
+            familiasEscolhidas.includes(d.familia ?? "")) &&
           (tipos.length === 0 || tipos.includes(d.tipo ?? "")) &&
           (territorios.length === 0 ||
             territorios.some((territorio) =>

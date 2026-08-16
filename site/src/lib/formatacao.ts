@@ -7,11 +7,14 @@
 
 import type {
   Calendario,
+  EntradaCatalogo,
   EntradaIndice,
   SistemaHora,
   Territorio,
   TipoEclipse,
+  TipoEclipseLunar,
   TipoLocal,
+  TipoLocalLunar,
 } from "./tipos";
 
 const MESES = [
@@ -134,6 +137,45 @@ export const NOMES_TIPO_LOCAL: Record<TipoLocal, string> = {
   nenhum: "Nenhum",
 };
 
+export const NOMES_TIPO_LUNAR: Record<TipoEclipseLunar, string> = {
+  total: "Total",
+  parcial: "Parcial",
+  penumbral: "Penumbral",
+};
+
+export const NOMES_TIPO_LOCAL_LUNAR: Record<TipoLocalLunar, string> = {
+  ...NOMES_TIPO_LUNAR,
+  nenhum: "Nenhum",
+};
+
+/** O nome de um tipo, seja de que familia for. */
+export function nomeDoTipo(entrada: EntradaCatalogo): string {
+  return entrada.familia === "lunar"
+    ? NOMES_TIPO_LUNAR[entrada.tipo]
+    : NOMES_TIPO[entrada.tipo];
+}
+
+/** O que se viu de Portugal, em nome. */
+export function nomeDoTipoLocal(entrada: EntradaCatalogo): string {
+  return entrada.familia === "lunar"
+    ? NOMES_TIPO_LOCAL_LUNAR[entrada.pt.tipo_local]
+    : NOMES_TIPO_LOCAL[entrada.pt.tipo_local];
+}
+
+/** A que profundidade este eclipse chegou em Portugal, entre 0 e 1.
+ *
+ * Serve para comparar eclipses de familias diferentes numa escala so, na linha
+ * temporal e nos destaques. Do lado solar e a fraccao do diametro do Sol
+ * tapada; do lado lunar e a da Lua tapada pela umbra, que passa de 1 nos totais
+ * e por isso se corta. Sao coisas diferentes e a escala nao pretende que nao
+ * sejam: pretende so ordenar cada familia dentro de si mesma. */
+export function funduraEmPortugal(entrada: EntradaCatalogo): number {
+  if (entrada.familia === "lunar") {
+    return Math.min(entrada.pt.magnitude_umbral, 1);
+  }
+  return entrada.pt.magnitude_max;
+}
+
 /** Como rotular a hora mostrada. Antes de 1912 nao havia hora legal em
  * Portugal: cada terra regia-se pelo seu meio-dia, e e isso que o pipeline
  * calcula. */
@@ -151,6 +193,18 @@ export function rotuloSistemaHora(
 export function titulo(e: EntradaIndice): string {
   const { principal } = dataVigente(e);
   return `Eclipse ${NOMES_TIPO[e.tipo].toLowerCase()} de ${dataPorExtenso(principal)}`;
+}
+
+/** O mesmo para um eclipse lunar, que precisa de dizer de que astro se trata:
+ * "eclipse total" sozinho e sempre lido como sendo do Sol. */
+export function tituloLunar(e: {
+  tipo: TipoEclipseLunar;
+  data_gregoriana: string;
+  data_juliana: string | null;
+  calendario_vigente_pt: Calendario;
+}): string {
+  const { principal } = dataVigente(e);
+  return `Eclipse ${NOMES_TIPO_LUNAR[e.tipo].toLowerCase()} da Lua de ${dataPorExtenso(principal)}`;
 }
 
 function pad(valor: number): string {

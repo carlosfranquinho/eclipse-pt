@@ -8,8 +8,8 @@
  * mudado: o conteudo de cada ficha e gerado, nao editado. */
 
 import type { APIContext } from "astro";
-import { indice } from "../lib/dados";
-import { caminho, urlEclipse } from "../lib/urls";
+import { indice, indiceLunar } from "../lib/dados";
+import { caminho, urlEclipse, urlEclipseLunar } from "../lib/urls";
 
 export function GET(contexto: APIContext): Response {
   const raiz = contexto.site;
@@ -20,6 +20,7 @@ export function GET(contexto: APIContext): Response {
     caminho(""),
     caminho("sobre"),
     ...indice().map((entrada) => urlEclipse(entrada.id)),
+    ...indiceLunar().map((entrada) => urlEclipseLunar(entrada.id)),
   ];
 
   const corpo = [

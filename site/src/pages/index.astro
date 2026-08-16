@@ -5,11 +5,16 @@ import Filtros from "../components/Filtros.astro";
 import LinhaTemporal from "../components/LinhaTemporal.astro";
 import ListaEclipses from "../components/ListaEclipses.astro";
 import { t } from "../i18n";
-import { indice, intervaloDoCatalogo } from "../lib/dados";
+import { catalogo, indiceCompleto, intervaloDoCatalogo } from "../lib/dados";
 
-const eclipses = indice();
-const comFaixa = eclipses.filter((e) => e.pt.faixa_central).length;
+const eclipses = indiceCompleto();
+const solares = eclipses.filter((e) => e.familia === "solar");
+const lunares = eclipses.filter((e) => e.familia === "lunar");
+const comFaixa = solares.filter(
+  (e) => e.familia === "solar" && e.pt.faixa_central,
+).length;
 const intervalo = intervaloDoCatalogo();
+const metadados = catalogo();
 
 // A data da build serve so para escolher os eclipses em destaque. O filtro
 // "por observar" da lista usa a data real do browser.
@@ -28,13 +33,24 @@ const anteriores = eclipses
   <p class="introducao">
     {
       t("inicio.introducao", {
-        total: eclipses.length,
+        solares: solares.length,
+        lunares: lunares.length,
         faixa: comFaixa,
         inicio: intervalo.inicio,
         fim: intervalo.fim,
       })
     }
   </p>
+  {
+    metadados.lua && (
+      <p class="discreto nota-penumbrais">
+        {t("inicio.nota_penumbrais", {
+          perceptiveis: metadados.lua.perceptiveis,
+          total: metadados.lua.total,
+        })}
+      </p>
+    )
+  }
 
   <h2>{t("inicio.antes")}</h2>
   <p class="discreto">{t("inicio.antes_ajuda")}</p>
@@ -82,5 +98,10 @@ const anteriores = eclipses
     font-family: var(--tipografia);
     font-size: 1.15rem;
     max-width: 44rem;
+  }
+
+  .nota-penumbrais {
+    max-width: 44rem;
+    margin-top: -0.4rem;
   }
 </style>

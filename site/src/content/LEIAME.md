@@ -73,3 +73,11 @@ não existe, porque o CI constrói sempre de raiz.
 
 A build avisa que não encontrou ficheiros para estas colecções. É esperado, e o
 aviso desaparece com a primeira nota ou a primeira galeria.
+
+## Eclipses lunares
+
+As mesmas duas coleccoes existem para os eclipses lunares, em pastas proprias:
+`notas/lua/<id>.md` e `galeria/lua/<id>.yaml`, com as imagens em
+`public/imagens/lua/<id>/`. O formato e identico ao dos solares; a separacao por
+pasta e o que impede que uma nota do Sol apareca numa ficha da Lua com a mesma
+data.

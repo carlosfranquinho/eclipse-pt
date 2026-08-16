@@ -180,6 +180,9 @@ def main() -> int:
         indice.append(
             {
                 "id": gregoriana.iso_data(),
+                # Solar ou lunar. O site tem as duas familias no mesmo catalogo
+                # e e por este campo que as distingue.
+                "familia": "solar",
                 "jd": eclipse["jd"],
                 "jd_t0_td": cal.jd_t0_td(eclipse),
                 "data_gregoriana": gregoriana.iso_data(),
@@ -235,8 +238,8 @@ def main() -> int:
         {
             k: e[k]
             for k in (
-                "id", "data_gregoriana", "data_juliana", "calendario_vigente_pt",
-                "tipo", "saros", "pt", "dados_pesados",
+                "id", "familia", "data_gregoriana", "data_juliana",
+                "calendario_vigente_pt", "tipo", "saros", "pt", "dados_pesados",
             )
         }
         for e in indice

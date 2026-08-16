@@ -1,0 +1,401 @@
+---
+/** A Lua a atravessar a sombra da Terra, com cursor de tempo.
+ *
+ * E o desenho classico dos eclipses lunares, e diz de uma vez o que uma tabela
+ * de contactos leva sete linhas a dizer: dois circulos concentricos, a penumbra
+ * e a umbra, e a Lua a passar por eles em linha recta. Quanto mais perto do
+ * centro passa, mais fundo e o eclipse; se so tocar o circulo de fora, e um
+ * penumbral e nao ha nada para ver.
+ *
+ * A escala e real: os raios e a distancia ao eixo estao em graus, tal como o
+ * pipeline os calcula, e a Lua desenhada tem o tamanho que tem.
+ *
+ * O primeiro desenho e feito na build, no instante do maximo, para a seccao
+ * continuar a dizer alguma coisa com o JavaScript desligado. Com JavaScript, o
+ * cursor percorre o eclipse do primeiro ao ultimo contacto, com os numeros a
+ * serem recalculados no momento por `src/lib/sombra.ts`.
+ */
+import { t } from "../i18n";
+import { magnitude as formatarMagnitude } from "../lib/formatacao";
+import {
+  faseNoInstante,
+  instantesDosContactos,
+  intervaloDoEclipse,
+  magnitudesNoInstante,
+  paraUt,
+  posicaoDaLua,
+} from "../lib/sombra";
+import { horaLocal } from "../lib/tempo";
+import { TERRITORIOS } from "../lib/territorios";
+import type { EclipseLunar, Territorio } from "../lib/tipos";
+
+interface Props {
+  eclipse: EclipseLunar;
+}
+
+const { eclipse } = Astro.props;
+const elementos = eclipse.elementos;
+
+// O lugar de referencia e o do territorio onde o eclipse se viu melhor, que e o
+// mesmo criterio do resto da ficha.
+const territorio: Territorio =
+  TERRITORIOS.filter((nome) => eclipse.territorios[nome].visivel).sort(
+    (a, b) => {
+      const ta = eclipse.territorios[a];
+      const tb = eclipse.territorios[b];
+      const fundura = (dados: typeof ta) =>
+        dados.visivel ? dados.magnitude_penumbral_visivel : -1;
+      return fundura(tb) - fundura(ta);
+    },
+  )[0] ?? "continente";
+const dados = eclipse.territorios[territorio];
+const lugar = dados.lugar;
+
+const contactos = instantesDosContactos(elementos);
+const { inicio, fim } = intervaloDoEclipse(elementos);
+const magnitudes = magnitudesNoInstante(elementos, elementos.jd_maximo_td);
+
+// A moldura do desenho, em graus. Cabe a penumbra inteira e a Lua nas duas
+// pontas do percurso, com uma folga para o traco nao encostar ao bordo.
+const meia = (elementos.raio_penumbra + 2 * elementos.raio_lua) * 1.04;
+const caixa = `${-meia} ${-meia} ${2 * meia} ${2 * meia}`;
+
+// No desenho o norte fica para cima, e no SVG o eixo vertical cresce para
+// baixo: por isso o sinal.
+const alturaDoPercurso = -elementos.y;
+const posicaoInicial = posicaoDaLua(elementos, elementos.jd_maximo_td);
+
+const horaDoMaximo = horaLocal(
+  paraUt(elementos, elementos.jd_maximo_td),
+  lugar.lon,
+  territorio,
+);
+
+/** Onde o centro da Lua esta, no desenho, em cada contacto. Sao as marcas que
+ * mostram onde o eclipse muda de fase. */
+const marcas = Object.entries(contactos)
+  .filter(([nome]) => nome !== "maximo")
+  .map(([nome, instante]) => ({
+    nome,
+    x: posicaoDaLua(elementos, instante).x,
+  }));
+
+const NOMES_DE_FASE = {
+  fora: t("sombra.fora"),
+  penumbral: t("sombra.fase_penumbral"),
+  parcial: t("sombra.fase_parcial"),
+  total: t("sombra.fase_total"),
+};
+
+const faseNoMaximo = faseNoInstante(elementos, elementos.jd_maximo_td);
+
+const configuracao = {
+  elementos,
+  lugar,
+  territorio,
+  textos: NOMES_DE_FASE,
+};
+
+const legenda = t("sombra.legenda", {
+  umbral: formatarMagnitude(Math.max(magnitudes.umbral, 0)),
+  penumbral: formatarMagnitude(magnitudes.penumbral),
+});
+---
+
+<section class="sombra">
+  <h2>{t("sombra.titulo")}</h2>
+  <p class="discreto">{t("sombra.ajuda")}</p>
+
+  <div class="sombra-grelha" data-configuracao={JSON.stringify(configuracao)}>
+    <figure class="desenho">
+      <svg viewBox={caixa} role="img" aria-label={legenda}>
+        <rect
+          class="ceu"
+          x={-meia}
+          y={-meia}
+          width={2 * meia}
+          height={2 * meia}
+        />
+        <circle class="penumbra" cx="0" cy="0" r={elementos.raio_penumbra} />
+        <circle class="umbra" cx="0" cy="0" r={elementos.raio_umbra} />
+
+        <line
+          class="percurso"
+          x1={-meia}
+          y1={alturaDoPercurso}
+          x2={meia}
+          y2={alturaDoPercurso}
+        />
+        {
+          marcas.map((marca) => (
+            <line
+              class="marca-contacto"
+              x1={marca.x}
+              y1={alturaDoPercurso - elementos.raio_lua * 0.5}
+              x2={marca.x}
+              y2={alturaDoPercurso + elementos.raio_lua * 0.5}
+            />
+          ))
+        }
+
+        <circle
+          class="lua"
+          data-fase={faseNoMaximo}
+          cx={posicaoInicial.x}
+          cy={alturaDoPercurso}
+          r={elementos.raio_lua}
+        />
+      </svg>
+      <figcaption class="discreto">{t("sombra.orientacao")}</figcaption>
+    </figure>
+
+    <div class="controlo">
+      <p class="lugar">{t("sombra.visto_de", { lugar: lugar.nome })}</p>
+      <dl class="dados">
+        <dt>{t("sombra.instante")}</dt>
+        <dd data-papel="instante">{horaDoMaximo.hora}</dd>
+        <dt>{t("sombra.fase")}</dt>
+        <dd data-papel="fase">{NOMES_DE_FASE[faseNoMaximo]}</dd>
+        <dt>{t("ficha.magnitude_umbral")}</dt>
+        <dd data-papel="umbral">
+          {
+            magnitudes.umbral > 0
+              ? formatarMagnitude(magnitudes.umbral)
+              : t("ficha.sem_umbra")
+          }
+        </dd>
+        <dt>{t("ficha.magnitude_penumbral")}</dt>
+        <dd data-papel="penumbral">{formatarMagnitude(magnitudes.penumbral)}</dd>
+      </dl>
+
+      <div class="cursor so-com-js">
+        <label for="cursor-sombra">{t("sombra.percorrer")}</label>
+        <input
+          id="cursor-sombra"
+          type="range"
+          min="0"
+          max="1000"
+          value={Math.round(
+            ((elementos.jd_maximo_td - inicio) / (fim - inicio)) * 1000,
+          )}
+          step="1"
+        />
+        <button type="button" data-papel="maximo">{t("sombra.maximo")}</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { magnitude as formatarMagnitude } from "../lib/formatacao";
+  import {
+    faseNoInstante,
+    intervaloDoEclipse,
+    magnitudesNoInstante,
+    paraUt,
+    posicaoDaLua,
+  } from "../lib/sombra";
+  import { horaLocal } from "../lib/tempo";
+  import type {
+    ElementosSombra,
+    LugarDeReferencia,
+    Territorio,
+  } from "../lib/tipos";
+
+  type Configuracao = {
+    elementos: ElementosSombra;
+    lugar: LugarDeReferencia;
+    territorio: Territorio;
+    textos: Record<"fora" | "penumbral" | "parcial" | "total", string>;
+  };
+
+  const bloco = document.querySelector<HTMLElement>(".sombra-grelha");
+  const configuracao: Configuracao | null = bloco?.dataset.configuracao
+    ? JSON.parse(bloco.dataset.configuracao)
+    : null;
+
+  if (bloco && configuracao) iniciar(bloco, configuracao);
+
+  function iniciar(bloco: HTMLElement, config: Configuracao) {
+    const { elementos } = config;
+    const lua = bloco.querySelector<SVGCircleElement>(".lua")!;
+    const cursor = bloco.querySelector<HTMLInputElement>("#cursor-sombra")!;
+    const parte = (papel: string) =>
+      bloco.querySelector<HTMLElement>(`[data-papel="${papel}"]`)!;
+
+    // Uma folga para cada lado dos contactos extremos: no proprio instante da
+    // tangencia a magnitude e zero e o circulo ora toca ora nao, conforme o
+    // ultimo bit. Com folga ve-se a Lua a chegar e a afastar-se.
+    const { inicio, fim } = intervaloDoEclipse(elementos);
+    const folga = 0.04 * (fim - inicio);
+    const comeco = inicio - folga;
+    const termo = fim + folga;
+
+    function desenhar(instante: number) {
+      const { x } = posicaoDaLua(elementos, instante);
+      lua.setAttribute("cx", String(x));
+
+      const magnitudes = magnitudesNoInstante(elementos, instante);
+      const fase = faseNoInstante(elementos, instante);
+      lua.setAttribute("data-fase", fase);
+
+      const local = horaLocal(
+        paraUt(elementos, instante),
+        config.lugar.lon,
+        config.territorio,
+      );
+      parte("instante").textContent = local.hora;
+      parte("fase").textContent = config.textos[fase];
+      parte("umbral").textContent =
+        magnitudes.umbral > 0 ? formatarMagnitude(magnitudes.umbral) : "—";
+      parte("penumbral").textContent =
+        magnitudes.penumbral > 0
+          ? formatarMagnitude(magnitudes.penumbral)
+          : "—";
+    }
+
+    function instanteDoCursor(): number {
+      return comeco + (Number(cursor.value) / 1000) * (termo - comeco);
+    }
+
+    cursor.addEventListener("input", () => desenhar(instanteDoCursor()));
+    bloco
+      .querySelector<HTMLButtonElement>('[data-papel="maximo"]')
+      ?.addEventListener("click", () => {
+        cursor.value = String(
+          Math.round(
+            ((elementos.jd_maximo_td - comeco) / (termo - comeco)) * 1000,
+          ),
+        );
+        desenhar(elementos.jd_maximo_td);
+      });
+
+    // O cursor vem da build no maximo, mas a janela do script tem folga: repoe-se
+    // para os dois concordarem.
+    cursor.value = String(
+      Math.round(((elementos.jd_maximo_td - comeco) / (termo - comeco)) * 1000),
+    );
+    desenhar(elementos.jd_maximo_td);
+  }
+</script>
+
+<style>
+  .sombra-grelha {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  @media (max-width: 46rem) {
+    .sombra-grelha {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .desenho {
+    margin: 0;
+  }
+
+  /* O desenho e quadrado porque a sombra e redonda e nao se distorce, mas nao
+     precisa de ocupar meia pagina: a coluna dos numeros fica ao lado dele e nao
+     por baixo. */
+  svg {
+    width: 100%;
+    max-width: 26rem;
+    height: auto;
+    border-radius: var(--raio);
+    border: 1px solid var(--linha);
+    display: block;
+  }
+
+  .ceu {
+    fill: #0b1020;
+  }
+
+  /* A penumbra e um degrade e nao um circulo de cor chapada: e assim que ela e,
+     e e por isso que um eclipse penumbral raso nao se ve. O bordo exterior e
+     quase transparente e a mancha so ganha corpo perto da umbra. */
+  .penumbra {
+    fill: #ffffff;
+    fill-opacity: 0.1;
+    stroke: #ffffff;
+    stroke-opacity: 0.25;
+    stroke-width: 0.006;
+  }
+
+  .umbra {
+    fill: #1b1109;
+    stroke: #7f1d1d;
+    stroke-width: 0.008;
+  }
+
+  .percurso {
+    stroke: #94a3b8;
+    stroke-opacity: 0.6;
+    stroke-width: 0.006;
+    stroke-dasharray: 0.04 0.03;
+  }
+
+  .marca-contacto {
+    stroke: #94a3b8;
+    stroke-opacity: 0.8;
+    stroke-width: 0.006;
+  }
+
+  .lua {
+    fill: #e7e5e4;
+    stroke: #a8a29e;
+    stroke-width: 0.004;
+  }
+
+  /* Dentro da umbra a Lua nao desaparece: fica cor de cobre, iluminada pela luz
+     que a atmosfera da Terra lhe desvia. */
+  .lua[data-fase="total"] {
+    fill: #9a3412;
+    stroke: #c2410c;
+  }
+
+  .lua[data-fase="parcial"] {
+    fill: #d6d3d1;
+  }
+
+  .lugar {
+    margin: 0 0 0.6rem;
+    font-family: var(--tipografia);
+    font-size: 1.05rem;
+  }
+
+  .cursor {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .cursor label {
+    font-size: 0.82rem;
+    color: var(--texto-suave);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .cursor input {
+    width: 100%;
+    accent-color: var(--realce);
+  }
+
+  .cursor button {
+    justify-self: start;
+    font: inherit;
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.3rem;
+    background: var(--fundo-suave);
+    color: var(--texto);
+    cursor: pointer;
+  }
+
+  .cursor button:hover {
+    border-color: var(--realce);
+  }
+</style>

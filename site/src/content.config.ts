@@ -36,9 +36,9 @@ const notas = defineCollection({
   }),
 });
 
-const galeria = defineCollection({
-  loader: glob({ pattern: "[!_]*.yaml", base: "./src/content/galeria" }),
-  schema: z.object({
+/** O conteudo de um ficheiro de galeria. Escrito a parte para as duas
+ * coleccoes, a solar e a lunar, partilharem a mesma definicao. */
+const esquemaGaleria = z.object({
     imagens: z
       .array(
         z.object({
@@ -61,7 +61,30 @@ const galeria = defineCollection({
         }),
       )
       .min(1),
+});
+
+const galeria = defineCollection({
+  loader: glob({ pattern: "[!_]*.yaml", base: "./src/content/galeria" }),
+  schema: esquemaGaleria,
+});
+
+/** As mesmas duas coleccoes para os eclipses lunares, em pastas proprias.
+ *
+ * Podiam ser as mesmas com o identificador prefixado, mas dois eclipses, um do
+ * Sol e outro da Lua, podem cair no mesmo dia do mesmo ano em anos diferentes e
+ * a separacao por pasta e a que nunca se engana. Os padroes das coleccoes
+ * solares nao apanham subpastas, por isso nao ha sobreposicao. */
+const notasLua = defineCollection({
+  loader: glob({ pattern: "[!_]*.md", base: "./src/content/notas/lua" }),
+  schema: z.object({
+    titulo: z.string().optional(),
+    fontes: z.array(fonte).optional(),
   }),
 });
 
-export const collections = { notas, galeria };
+const galeriaLua = defineCollection({
+  loader: glob({ pattern: "[!_]*.yaml", base: "./src/content/galeria/lua" }),
+  schema: esquemaGaleria,
+});
+
+export const collections = { notas, galeria, notasLua, galeriaLua };
