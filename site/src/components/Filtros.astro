@@ -5,7 +5,7 @@ import {
   NOMES_TIPO,
   NOMES_TIPO_LUNAR,
 } from "../lib/formatacao";
-import type { EntradaCatalogo, Familia, Territorio } from "../lib/tipos";
+import type { EntradaCatalogo, Territorio } from "../lib/tipos";
 import { periodos } from "../lib/filtros";
 
 interface Props {
@@ -14,21 +14,19 @@ interface Props {
 
 const { eclipses } = Astro.props;
 
-// Os tipos das duas familias numa lista so, sem repetir os que partilham o
-// nome: "total" filtra os totais do Sol e os da Lua, e quem so quiser uns
-// escolhe tambem o astro, logo ao lado.
-const tipos = [
-  ...new Set([...Object.keys(NOMES_TIPO), ...Object.keys(NOMES_TIPO_LUNAR)]),
+// A escolha do astro manda no resto do formulario: cada controlo declara em que
+// escolhas faz sentido, e os que nao fazem desaparecem, repostos no valor por
+// omissao para nao filtrarem as escondidas. Um eclipse lunar nao tem faixa
+// central, e "anular" e "penumbral" nao sao tipos da mesma coisa.
+const ASTROS = [
+  { valor: "ambos", nome: t("filtros.astro_ambos") },
+  { valor: "solar", nome: t("filtros.astro_sol") },
+  { valor: "lunar", nome: t("filtros.astro_lua") },
 ];
-const nomeDoTipo = (tipo: string) =>
-  (NOMES_TIPO as Record<string, string>)[tipo] ??
-  (NOMES_TIPO_LUNAR as Record<string, string>)[tipo] ??
-  tipo;
 
-const familias: { valor: Familia; nome: string }[] = [
-  { valor: "solar", nome: t("filtros.sol") },
-  { valor: "lunar", nome: t("filtros.lua") },
-];
+const tiposSolares = Object.entries(NOMES_TIPO);
+const tiposLunares = Object.entries(NOMES_TIPO_LUNAR);
+
 const territorios = Object.keys(NOMES_TERRITORIO) as Territorio[];
 const intervalos = periodos(eclipses);
 
@@ -45,24 +43,43 @@ const penumbrais = lunares.filter(
     <legend>{t("filtros.astro")}</legend>
     <div class="opcoes">
       {
-        familias.map((familia) => (
+        ASTROS.map((astro, indice) => (
           <label>
-            <input type="checkbox" name="familia" value={familia.valor} />
-            {familia.nome}
+            <input
+              type="radio"
+              name="familia"
+              value={astro.valor}
+              checked={indice === 0}
+            />
+            {astro.nome}
           </label>
         ))
       }
     </div>
   </fieldset>
 
-  <fieldset>
-    <legend>{t("filtros.tipo")}</legend>
+  <fieldset data-visivel-em="ambos solar">
+    <legend>{t("filtros.tipo_sol")}</legend>
     <div class="opcoes">
       {
-        tipos.map((tipo) => (
+        tiposSolares.map(([tipo, nome]) => (
           <label>
-            <input type="checkbox" name="tipo" value={tipo} />
-            {nomeDoTipo(tipo)}
+            <input type="checkbox" name="tipo-sol" value={tipo} />
+            {nome}
+          </label>
+        ))
+      }
+    </div>
+  </fieldset>
+
+  <fieldset data-visivel-em="ambos lunar">
+    <legend>{t("filtros.tipo_lua")}</legend>
+    <div class="opcoes">
+      {
+        tiposLunares.map(([tipo, nome]) => (
+          <label>
+            <input type="checkbox" name="tipo-lua" value={tipo} />
+            {nome}
           </label>
         ))
       }
@@ -115,8 +132,17 @@ const penumbrais = lunares.filter(
     </select>
   </div>
 
-  <div class="campo">
-    <label for="filtro-magnitude">{t("filtros.magnitude_minima")}</label>
+  {/* A magnitude mede coisas diferentes nas duas familias, a fraccao do Sol
+      tapada pela Lua e a da Lua dentro da umbra da Terra, e por isso so aparece
+      quando ha uma familia escolhida. O rotulo muda com ela. */}
+  <div class="campo" data-visivel-em="solar lunar" hidden>
+    <label
+      for="filtro-magnitude"
+      data-rotulo-solar={t("filtros.magnitude_minima")}
+      data-rotulo-lunar={t("filtros.magnitude_umbral_minima")}
+    >
+      {t("filtros.magnitude_minima")}
+    </label>
     <div class="deslizador">
       <input
         type="range"
@@ -131,11 +157,14 @@ const penumbrais = lunares.filter(
     </div>
   </div>
 
-  <div class="campo campo-largo">
+  <div class="campo campo-largo" data-visivel-em="solar" hidden>
     <label>
       <input type="checkbox" name="faixa" value="1" />
       {t("filtros.faixa_central")}
     </label>
+  </div>
+
+  <div class="campo campo-largo" data-visivel-em="ambos lunar">
     <label>
       <input type="checkbox" name="penumbrais" value="1" />
       {t("filtros.penumbrais")}
@@ -342,6 +371,11 @@ const penumbrais = lunares.filter(
     // primeira passagem, que corre com o formulario nos valores por omissao.
     let visiveisPorOmissao: number | null = null;
 
+    // Os controlos que so aparecem para certas escolhas de astro.
+    const condicionais = Array.from(
+      forma.querySelectorAll<HTMLElement>("[data-visivel-em]"),
+    );
+
     const saidaMagnitude = document.getElementById(
       "valor-magnitude",
     ) as HTMLOutputElement | null;
@@ -357,18 +391,71 @@ const penumbrais = lunares.filter(
         ),
       ).map((entrada) => entrada.value);
 
+    // O astro da passagem anterior, para se saber quando ele muda.
+    let astroAnterior: string | null = null;
+
+    /** Mostra os controlos que fazem sentido para o astro escolhido e repoe os
+     * outros. Repor e a parte que importa: um controlo escondido com valor
+     * dentro continuaria a filtrar, e ninguem perceberia porque. */
+    function arrumarControlos(astro: string) {
+      const mudouDeAstro = astroAnterior !== null && astroAnterior !== astro;
+      astroAnterior = astro;
+
+      // A magnitude nao se herda de uma familia para a outra: 0,70 do disco
+      // solar tapado e 0,70 do diametro da Lua dentro da umbra sao criterios
+      // diferentes, e arrastar o valor de um para o outro filtrava por uma coisa
+      // que ninguem pediu.
+      if (mudouDeAstro) {
+        const deslizador = forma!.querySelector<HTMLInputElement>(
+          "#filtro-magnitude",
+        );
+        if (deslizador) deslizador.value = deslizador.min;
+      }
+
+      for (const campo of condicionais) {
+        const mostra = (campo.dataset.visivelEm ?? "").split(" ").includes(astro);
+        if (campo.hidden === !mostra) continue;
+        campo.hidden = !mostra;
+        if (mostra) continue;
+        for (const entrada of campo.querySelectorAll<HTMLInputElement>("input")) {
+          if (entrada.type === "checkbox" || entrada.type === "radio") {
+            entrada.checked = entrada.defaultChecked;
+          } else if (entrada.type === "range") {
+            entrada.value = entrada.min;
+          }
+        }
+      }
+
+      // O deslizador da magnitude serve as duas familias e mede coisas
+      // diferentes em cada uma; o rotulo tem de o dizer.
+      const rotulo = forma!.querySelector<HTMLLabelElement>(
+        'label[for="filtro-magnitude"]',
+      );
+      if (rotulo && astro !== "ambos") {
+        rotulo.textContent =
+          astro === "lunar"
+            ? (rotulo.dataset.rotuloLunar ?? rotulo.textContent)
+            : (rotulo.dataset.rotuloSolar ?? rotulo.textContent);
+      }
+    }
+
     function aplicar() {
+      const astro = String(
+        new FormData(forma!).get("familia") ?? "ambos",
+      );
+      arrumarControlos(astro);
+
       const dados = new FormData(forma!);
-      const tipos = marcados("tipo");
-      const familiasEscolhidas = marcados("familia");
+      const tiposSolares = marcados("tipo-sol");
+      const tiposLunares = marcados("tipo-lua");
       const territorios = marcados("territorio");
       const intervalo = String(dados.get("intervalo") ?? "");
       const magnitudeMinima = Number(dados.get("magnitude") ?? 0);
       const soFaixa = dados.get("faixa") === "1";
-      // Quem pede o tipo "penumbral" na lista dos tipos esta a pedi-los, e seria
-      // absurdo devolver-lhe uma lista vazia por causa de uma omissao.
+      // Quem pede o tipo "penumbral" na lista dos tipos da Lua esta a pedi-los,
+      // e seria absurdo devolver-lhe uma lista vazia por causa de uma omissao.
       const mostrarPenumbrais =
-        dados.get("penumbrais") === "1" || tipos.includes("penumbral");
+        dados.get("penumbrais") === "1" || tiposLunares.includes("penumbral");
       const quando = String(dados.get("quando") ?? "todos");
 
       const visiveis = new Set<string>();
@@ -376,10 +463,14 @@ const penumbrais = lunares.filter(
       for (const elemento of elementos) {
         const d = elemento.dataset;
         const territoriosDoEclipse = (d.territorios ?? "").split(" ");
+        // Cada familia responde a sua lista de tipos. Sem isto, "total" pedia
+        // os totais das duas, que sao coisas diferentes com o mesmo nome.
+        const tiposDaFamilia =
+          d.familia === "lunar" ? tiposLunares : tiposSolares;
         const passa =
-          (familiasEscolhidas.length === 0 ||
-            familiasEscolhidas.includes(d.familia ?? "")) &&
-          (tipos.length === 0 || tipos.includes(d.tipo ?? "")) &&
+          (astro === "ambos" || d.familia === astro) &&
+          (tiposDaFamilia.length === 0 ||
+            tiposDaFamilia.includes(d.tipo ?? "")) &&
           (territorios.length === 0 ||
             territorios.some((territorio) =>
               territoriosDoEclipse.includes(territorio),
@@ -464,6 +555,13 @@ const penumbrais = lunares.filter(
     display: grid;
     gap: 0.3rem;
     align-content: start;
+  }
+
+  /* O `hidden` do HTML vale por um `display: none` da folha do browser, e
+     qualquer regra nossa que declare `display` ganha-lhe. Sem isto, os
+     controlos escondidos por nao fazerem sentido continuavam a ver-se. */
+  .filtros [hidden] {
+    display: none;
   }
 
   .campo-largo .ajuda {
