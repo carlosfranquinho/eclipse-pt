@@ -190,3 +190,19 @@ def hora_local(jd_ut: float, lon_graus: float, territorio: str) -> dict:
         "designacao_fuso": None,
         "desvio_utc_h": lon_graus / 15.0,
     }
+
+
+def jd_maximo_td_lua(eclipse: dict) -> float:
+    """Dia juliano, em TD, do maximo de um eclipse lunar.
+
+    O catalogo lunar nao publica o dia juliano, so a data civil e a hora do
+    maximo ao segundo, o que aqui ate simplifica: e a mesma aritmetica de
+    `jd_maximo_td` sem o arredondamento de que aquela se defende. A data vem no
+    calendario juliano ate 1582-10-04 e no gregoriano de 1582-10-15 em diante,
+    convencao do proprio catalogo.
+    """
+    gregoriano = (eclipse["ano"], eclipse["mes"], eclipse["dia"]) >= (1582, 10, 15)
+    meia_noite = civil_para_jd(
+        eclipse["ano"], eclipse["mes"], eclipse["dia"], gregoriano=gregoriano
+    )
+    return meia_noite + eclipse["maximo"]["instante_td_h"] / 24.0
