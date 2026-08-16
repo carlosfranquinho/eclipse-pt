@@ -79,13 +79,25 @@ function nomeDoTipo(eclipse: EntradaCatalogo): string {
     : NOMES_TIPO[eclipse.tipo];
 }
 
+/** A magnitude que a dica mostra. A escala comum serve para ordenar e para
+ * pintar; para dizer um numero a quem passa o rato, o que vale e o numero
+ * verdadeiro: a magnitude umbral de um eclipse lunar passa de 1 e nao ha razao
+ * para a cortar aqui. Num penumbral, que nem toca a umbra, a magnitude e a
+ * penumbral, e o proprio nome do tipo, ali ao lado, ja o diz. */
+function magnitudeDaDica(eclipse: EntradaCatalogo): number {
+  if (eclipse.familia === "solar") return eclipse.pt.magnitude_max;
+  return eclipse.pt.magnitude_umbral > 0
+    ? eclipse.pt.magnitude_umbral
+    : eclipse.pt.magnitude_penumbral;
+}
+
 function titulo(ano: number, lista: EntradaCatalogo[]): string {
   const contagem =
     lista.length === 1
       ? t("inicio.seculo_um")
       : t("inicio.seculo_varios", { total: lista.length });
   const chefe = maisFundo(lista);
-  return `${ano}: ${contagem}, ${nomeDoTipo(chefe).toLowerCase()} de magnitude ${formatarMagnitude(funduraEmPortugal(chefe))}`;
+  return `${ano}: ${contagem}, ${nomeDoTipo(chefe).toLowerCase()} de magnitude ${formatarMagnitude(magnitudeDaDica(chefe))}`;
 }
 
 /** As duas grelhas, uma por familia. Foi assim e nao com o ano dividido ao meio

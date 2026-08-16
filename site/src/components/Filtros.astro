@@ -270,6 +270,9 @@ const intervalos = periodos(eclipses);
             ? contarUm
             : contarVarios.replace("{total}", String(dados.quantos));
         const nome = nomeDoTipo(dados.familia, dados.tipo);
+        // Aqui a magnitude e a da escala comum, cortada em 1: e o unico numero
+        // que os atributos do filtro guardam. Na build, onde ha o eclipse
+        // inteiro, a dica traz o numero verdadeiro.
         celula.title = `${ano}: ${contagem}, ${nome.toLowerCase()} de magnitude ${formatarMagnitude(dados.magnitude)}`;
       }
 
