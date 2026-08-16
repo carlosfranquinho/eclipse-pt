@@ -249,8 +249,10 @@ def main() -> int:
     # visiveis, ficariam para tras a ocupar o repositorio e a ser publicadas sem
     # nada que lhes aponte. Vao-se embora com o indice que as deixou de referir.
     conhecidos = {e["id"] for e in indice}
+    # A pasta dos lunares e vizinha destas e nao lhes pertence: quem a limpa e o
+    # `build_index_lua.py`.
     for pasta in sorted(SAIDA.iterdir()):
-        if pasta.is_dir() and pasta.name not in conhecidos:
+        if pasta.is_dir() and pasta.name != "lua" and pasta.name not in conhecidos:
             for ficheiro in pasta.iterdir():
                 ficheiro.unlink()
             pasta.rmdir()

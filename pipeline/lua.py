@@ -607,3 +607,106 @@ def duracoes(jde: Any, gamma: Any, regra: str = REGRA_ADOPTADA) -> dict[str, Any
         "parcial_min": _corda(g["raio_umbra"] + g["raio_lua"]) / velocidade * 60.0,
         "total_min": _corda(g["raio_umbra"] - g["raio_lua"]) / velocidade * 60.0,
     }
+
+
+# --------------------------------------------------------------------------
+# O eclipse reduzido a meia duzia de numeros
+# --------------------------------------------------------------------------
+
+# Fases, da mais exterior para a mais interior, e o contacto que abre e fecha
+# cada uma. Sao os nomes classicos: P para a penumbra, U para a umbra.
+CONTACTOS = (("penumbral", "p1", "p4"), ("parcial", "u1", "u4"), ("total", "u2", "u3"))
+
+
+def elementos_do_eclipse(
+    jd_maximo_td: float, gamma: float, duracao_penumbral_min: float, delta_t_s: float
+) -> dict[str, float]:
+    """Reduz um eclipse do catalogo aos numeros de que o desenho precisa.
+
+    E o equivalente lunar dos elementos besselianos: com estes numeros, e so com
+    eles, desenha-se o eclipse inteiro e calcula-se a magnitude em qualquer
+    instante, sem tabelas de efemerides nem trigonometria esferica. E por isso
+    que sao eles que vao para o browser.
+
+    O modelo e o de sempre: vista de frente, a sombra da Terra sao dois circulos
+    concentricos, e a Lua atravessa-os em linha recta e a velocidade constante,
+    passando a `y` graus do eixo. O sinal de `y` segue o do gama do catalogo,
+    positivo quando a Lua passa a norte do eixo.
+
+    A velocidade nao vem das efemerides, vem da duracao penumbral publicada: a
+    corda que a Lua percorre e conhecida, o tempo que demorou tambem, e a divisao
+    das duas e mais exacta do que qualquer diferenca finita. Assim os contactos
+    calculados aqui reproduzem os do catalogo, os tres primeiros e os tres
+    ultimos, com poucos segundos de diferenca.
+    """
+    g = geometria_da_sombra(jd_maximo_td, gamma)
+
+    distancia = float(g["distancia_minima"])
+    raio_penumbra = float(g["raio_penumbra"])
+    raio_lua = float(g["raio_lua"])
+    corda_penumbral = 2.0 * np.sqrt((raio_penumbra + raio_lua) ** 2 - distancia**2)
+    duracao_h = duracao_penumbral_min / 60.0
+
+    return {
+        "jd_maximo_td": jd_maximo_td,
+        "delta_t_s": delta_t_s,
+        "raio_umbra": float(g["raio_umbra"]),
+        "raio_penumbra": raio_penumbra,
+        "raio_lua": raio_lua,
+        "y": float(np.sign(gamma) * distancia),
+        "velocidade": corda_penumbral / duracao_h,
+    }
+
+
+def _corda(raio: float, y: float) -> float | None:
+    """Meia corda que a Lua percorre dentro de um circulo de raio `raio`.
+
+    `None` quando a Lua nao chega a entrar nele, que e o que acontece a fase
+    total de um eclipse parcial e as duas fases umbrais de um penumbral.
+    """
+    quadrado = raio**2 - y**2
+    return float(np.sqrt(quadrado)) if quadrado > 0.0 else None
+
+
+def instantes_dos_contactos(elementos: dict[str, float]) -> dict[str, float]:
+    """Os sete instantes do eclipse, em dias julianos de TD.
+
+    Devolve so os contactos que existem: um eclipse penumbral tem P1, o maximo e
+    P4, e mais nada.
+    """
+    y = elementos["y"]
+    raios = {
+        "penumbral": elementos["raio_penumbra"] + elementos["raio_lua"],
+        "parcial": elementos["raio_umbra"] + elementos["raio_lua"],
+        "total": elementos["raio_umbra"] - elementos["raio_lua"],
+    }
+
+    momentos = {"maximo": elementos["jd_maximo_td"]}
+    for fase, entrada, saida in CONTACTOS:
+        meia_corda = _corda(raios[fase], y)
+        if meia_corda is None:
+            continue
+        meio_intervalo = meia_corda / elementos["velocidade"] / 24.0
+        momentos[entrada] = elementos["jd_maximo_td"] - meio_intervalo
+        momentos[saida] = elementos["jd_maximo_td"] + meio_intervalo
+    return momentos
+
+
+def magnitudes_no_instante(
+    elementos: dict[str, float], jd_td: Any
+) -> dict[str, Any]:
+    """Magnitude umbral e penumbral num instante qualquer do eclipse.
+
+    Fora do eclipse dao negativas, que e a maneira honesta de dizer que a sombra
+    ainda esta ou ja esta a distancia da Lua.
+    """
+    x = (np.asarray(jd_td, dtype=float) - elementos["jd_maximo_td"]) * 24.0 * elementos[
+        "velocidade"
+    ]
+    distancia = np.hypot(x, elementos["y"])
+    raio_lua = elementos["raio_lua"]
+    return {
+        "umbral": (elementos["raio_umbra"] + raio_lua - distancia) / (2.0 * raio_lua),
+        "penumbral": (elementos["raio_penumbra"] + raio_lua - distancia)
+        / (2.0 * raio_lua),
+    }

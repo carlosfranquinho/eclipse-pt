@@ -5,5 +5,10 @@
  ],
  "total": 471,
  "com_faixa_central": 42,
- "com_dados_pesados": 275
+ "com_dados_pesados": 275,
+ "lua": {
+  "total": 1727,
+  "no_catalogo": 2424,
+  "perceptiveis": 1198
+ }
 }
